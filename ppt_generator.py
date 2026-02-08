@@ -338,7 +338,38 @@ class PPTGenerator:
         """
         Attempt to fetch BOM code from Yahoo Finance search API.
         Searches for the symbol or company name and looks for a result ending in '.BO'.
+        Falls back to a known list of common Indian stocks.
         """
+        # Fallback list of common Indian stocks (NSE symbol -> BSE code)
+        KNOWN_BSE_CODES = {
+            'WIPRO': '507685',
+            'TCS': '532540',
+            'INFY': '500209',
+            'RELIANCE': '500325',
+            'HDFCBANK': '500180',
+            'ICICIBANK': '532174',
+            'SBIN': '500112',
+            'BHARTIARTL': '532454',
+            'ITC': '500875',
+            'HINDUNILVR': '500696',
+            'KOTAKBANK': '500247',
+            'LT': '500510',
+            'AXISBANK': '532215',
+            'ASIANPAINT': '500820',
+            'MARUTI': '532500',
+            'TATAMOTORS': '500570',
+            'SUNPHARMA': '524715',
+            'TITAN': '500114',
+            'BAJFINANCE': '500034',
+            'HCLTECH': '532281',
+        }
+        
+        # Check fallback list first
+        symbol_upper = symbol.upper() if symbol else ''
+        if symbol_upper in KNOWN_BSE_CODES:
+            print(f"    -> Found BSE code in fallback list: {KNOWN_BSE_CODES[symbol_upper]}")
+            return KNOWN_BSE_CODES[symbol_upper]
+        
         try:
             # Try searching by symbol first, then company name
             queries = [q for q in [symbol, company_name] if q]
@@ -348,23 +379,29 @@ class PPTGenerator:
             }
 
             for query in queries:
-                url = f"https://query2.finance.yahoo.com/v1/finance/search?q={query}&quotesCount=5&newsCount=0"
-                response = requests.get(url, headers=headers, timeout=5)
+                print(f"    -> Searching Yahoo Finance for: {query}")
+                url = f"https://query2.finance.yahoo.com/v1/finance/search?q={query}&quotesCount=10&newsCount=0"
+                response = requests.get(url, headers=headers, timeout=10)
+                
+                print(f"    -> Response status: {response.status_code}")
                 
                 if response.status_code == 200:
                     data = response.json()
                     quotes = data.get('quotes', [])
+                    print(f"    -> Found {len(quotes)} quotes")
                     
                     for quote in quotes:
                         symbol_ticker = quote.get('symbol', '')
                         # Look for BSE symbols (usually end with .BO)
                         if symbol_ticker.endswith('.BO'):
-                            # Return the code part (e.g. '507685.BO' -> '507685')
-                            return symbol_ticker.split('.')[0]
+                            bse_code = symbol_ticker.split('.')[0]
+                            print(f"    -> Found BSE symbol: {symbol_ticker} -> {bse_code}")
+                            return bse_code
                             
         except Exception as e:
             print(f"    Warning: Could not fetch BOM code: {e}")
             
+        print("    -> No BSE code found")
         return ' '
 
     def populate_from_data(self, data: Dict[str, Any]) -> Dict[str, bool]:
