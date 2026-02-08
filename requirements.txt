@@ -1,0 +1,18 @@
+# PPT Generator Dependencies
+# ==========================
+
+# PowerPoint manipulation
+python-pptx>=0.6.21
+
+# HTTP requests for downloading images
+requests>=2.28.0
+
+# Flask for API server
+Flask>=2.3.0
+Flask-CORS>=4.0.0
+
+# Optional: For better async handling
+# aiohttp>=3.8.0
+
+# Optional: For environment variable management
+# python-dotenv>=1.0.0
