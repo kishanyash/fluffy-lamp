@@ -443,7 +443,7 @@ class PPTGenerator:
             ('company_name', data.get('company_name', ''), 24),  # Large font for title
             ('nse_symbol', data.get('nse_symbol', data.get('symbol', '')), 14),
             ('bom_code', bom_code, 14),
-            ('rating', rating, 14),
+            ('recommendation', rating, 14),
             ('today_date', data.get('today_date', datetime.now().strftime('%Y-%m-%d')), 14),
             ('company_background', self.parse_markdown_to_text(data.get('company_background', '')), None),
             ('business_model', self.parse_markdown_to_text(data.get('business_model', '')), None),
