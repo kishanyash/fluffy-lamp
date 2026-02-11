@@ -324,21 +324,17 @@ class PPTGenerator:
         text_len = len(text)
         
         if text_len < 500:
-            return 10.5  # Standard body text
+            return 11.0  # Standard body text
         elif text_len < 1000:
-            return 10.0
+            return 10.5
         elif text_len < 1500:
-            return 9.0
+            return 10.0
         elif text_len < 2000:
-            return 8.0
+            return 9.0
         elif text_len < 3000:
-            return 7.0
-        elif text_len < 4000:
-            return 6.0
-        elif text_len < 5000:
-            return 5.0
+            return 8.0 # Let auto-fit shrink further if needed
         else:
-            return 4.0
+            return 7.0 # Set a readable base even for long text
 
     def fetch_bom_code(self, symbol: str, company_name: str) -> str:
         """
