@@ -331,8 +331,14 @@ class PPTGenerator:
             return 9.0
         elif text_len < 2000:
             return 8.0
-        else:
+        elif text_len < 3000:
             return 7.0
+        elif text_len < 4000:
+            return 6.0
+        elif text_len < 5000:
+            return 5.0
+        else:
+            return 4.0
 
     def fetch_bom_code(self, symbol: str, company_name: str) -> str:
         """
@@ -463,10 +469,10 @@ class PPTGenerator:
                 else:
                     font_size = self.calculate_font_size(value)
                 
-                # Limit text length to prevent extreme overflow
-                max_chars = 3000
-                if len(value) > max_chars:
-                    value = value[:max_chars] + "\n\n[Content truncated...]"
+                # Limit text length to prevent extreme overflow - REMOVED LIMIT
+                # max_chars = 3000
+                # if len(value) > max_chars:
+                #    value = value[:max_chars] + "\n\n[Content truncated...]"
                 
                 count = self.find_and_replace_placeholder(placeholder, value, font_size)
                 results[placeholder] = count > 0
