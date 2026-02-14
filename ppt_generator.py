@@ -64,6 +64,10 @@ class PPTGenerator:
             'slide': 9,  # Slide 10 (Summary in Charts)
             'position': {'left': 0.5, 'top': 0.75, 'width': 9.0, 'height': 4.5}
         },
+        'price_chart': {
+             'slide': 0, # Slide 1 (Title)
+             'position': {'left': 7.0, 'top': 2.0, 'width': 3.0, 'height': 2.0}
+        },
     }
 
     def __init__(self, template_path: str):
@@ -500,12 +504,17 @@ class PPTGenerator:
         print("\n--- Table Population ---")
         
         # 1. Try to use explicit markdown if provided (highest priority)
-        financial_text = data.get('financial_performance', '')
+        # 1. Try to use explicit markdown if provided (highest priority)
+        financial_val = data.get('financial_performance', '')
         table_data = []
+        financial_text_summary = ""
         
-        if financial_text and '|' in financial_text:
+        if financial_val and '|' in str(financial_val):
             print("  Found markdown table in 'financial_performance'. Parsing...")
-            table_data = self.parse_markdown_table_to_data(financial_text)
+            table_data = self.parse_markdown_table_to_data(str(financial_val))
+        else:
+            print("  'financial_performance' appears to be text summary.")
+            financial_text_summary = str(financial_val) if financial_val else ""
         
         # 2. If no markdown, try to construct from individual DB fields (equity_universe data)
         elif 'revenue_fy2024' in data or 'revenue_ttm' in data:
@@ -610,9 +619,23 @@ class PPTGenerator:
             ('industry_tailwinds', self.parse_markdown_to_text(data.get('industry_tailwinds', data.get('key_industry', ''))), None),
             ('demand_drivers', self.parse_markdown_to_text(data.get('demand_drivers', '')), None),
             ('industry_risk', self.parse_markdown_to_text(data.get('industry_risks', data.get('industry_risk', ''))), None),
+            
+            # --- NEW FIELDS ---
+            ('market_positioning', self.parse_markdown_to_text(data.get('market_positioning', '')), None),
+            ('financial_performance', financial_text_summary, None),
+            ('growth_outlook', self.parse_markdown_to_text(data.get('growth_outlook', '')), None),
+            ('valuation_recommendation', self.parse_markdown_to_text(data.get('valuation_recommendation', '')), None),
+            ('key_risks', self.parse_markdown_to_text(data.get('key_risks', '')), None),
+            ('company_insider', self.parse_markdown_to_text(data.get('company_insider', '')), None),
+            
+            # Scripts
+            ('podcast_script', self.parse_markdown_to_text(data.get('podcast_script', '')), None),
+            ('video_script', self.parse_markdown_to_text(data.get('video_script', '')), None),
+
             # Clear these placeholders as they will be replaced by images
             ('summary_table', ' ', None),  
             ('chart_custom', ' ', None),
+            ('price_chart', ' ', None),
         ]
 
         for placeholder, value, fixed_font_size in text_mappings:
@@ -648,6 +671,7 @@ class PPTGenerator:
             'chart_ratio_analysis': data.get('chart_ratio_analysis'),
             'summary_table': data.get('summary_table'),  # Slide 9 Image
             'chart_custom': data.get('chart_custom'),    # Slide 10 Image
+            'price_chart': data.get('price_chart'),      # New chart
         }
 
         for field_name, url in image_fields.items():
