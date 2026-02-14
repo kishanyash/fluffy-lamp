@@ -1,0 +1,10 @@
+Starting test...
+Testing truncation logic...
+Generated text length: 6000
+
+--- Running populate_from_data ---
+
+--- Inspecting Slides for Truncation Marker ---
+Text found but NO truncation marker. Length: 6025
+
+TEST RESULT: FAILED TO REPRODUCE - Text was NOT truncated (or marker not found).

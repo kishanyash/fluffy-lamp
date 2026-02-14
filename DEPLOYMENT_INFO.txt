@@ -1,0 +1,189 @@
+# PPT Generator - Deployment Documentation
+# ==========================================
+# Created: February 9, 2026
+# Author: Kishan Kumar Yadav
+
+================================================================================
+                           DEPLOYMENT SUMMARY
+================================================================================
+
+PROJECT NAME:       PPT Generator API
+HOSTED ON:          Railway.app
+DEPLOYMENT URL:     https://fluffy-lamp-production.up.railway.app
+API ENDPOINT:       https://fluffy-lamp-production.up.railway.app/generate-ppt
+
+================================================================================
+                           GITHUB REPOSITORY
+================================================================================
+
+REPOSITORY URL:     https://github.com/kishanyash/fluffy-lamp
+BRANCH:             main
+AUTO-DEPLOY:        Yes (pushes to main branch trigger automatic deployment)
+
+================================================================================
+                           RAILWAY.APP DETAILS
+================================================================================
+
+PROJECT NAME:       laudable-joy (production environment)
+SERVICE NAME:       fluffy-lamp
+REGION:             us-west2
+
+RUNTIME:
+  - Python Version: 3.10.19
+  - WSGI Server:    Gunicorn 25.0.3
+  - Framework:      Flask
+
+NETWORKING:
+  - Public Domain:  fluffy-lamp-production.up.railway.app
+  - Target Port:    8080
+  - Protocol:       HTTPS
+
+PLAN:
+  - Type:           Free Tier
+  - Credit:         $5.00/month or 500 hours
+  - Status:         30 days remaining
+
+================================================================================
+                           HOW THE API WORKS
+================================================================================
+
+1. n8n sends a POST request to: /generate-ppt
+2. The API receives JSON data with report information
+3. PPT is generated using the master_template.pptx
+4. The generated PPT file is returned as a downloadable file
+
+REQUEST FORMAT (JSON):
+{
+    "company_name": "Company Name",
+    "nse_symbol": "SYMBOL",
+    "bom_code": "123456",           // Optional - auto-fetched if missing
+    "rating": "Buy",                 // Optional - defaults to "N/A"
+    "company_background": "...",
+    "business_model": "...",
+    "management_analysis": "...",
+    "industry_overview": "...",
+    "industry_tailwinds": "...",
+    "demand_drivers": "...",
+    "industry_risks": "...",
+    "chart_profit_loss": "https://...",
+    "chart_balance_sheet": "https://...",
+    "chart_cash_flow": "https://...",
+    "chart_ratio_analysis": "https://...",
+    "summary_table": "https://...",
+    "chart_custom": "https://..."
+}
+
+RESPONSE:
+  - Success: Returns PPT file (application/vnd.openxmlformats-officedocument.presentationml.presentation)
+  - Error: Returns JSON with error message
+
+================================================================================
+                           FILES DEPLOYED
+================================================================================
+
+report_engine/
+├── api_server.py        # Flask API server
+├── ppt_generator.py     # PPT generation logic
+├── master_template.pptx # PowerPoint template (11 slides)
+├── requirements.txt     # Python dependencies
+├── Procfile             # Railway start command
+├── runtime.txt          # Python version (3.10)
+├── README.md            # Project documentation
+└── HOSTING_GUIDE.md     # Hosting instructions
+
+================================================================================
+                           DEPENDENCIES (requirements.txt)
+================================================================================
+
+python-pptx>=0.6.21      # PowerPoint manipulation
+requests>=2.28.0         # HTTP requests for images
+Flask>=2.3.0             # Web framework
+Flask-CORS>=4.0.0        # Cross-Origin Resource Sharing
+gunicorn>=21.0.0         # Production WSGI server
+
+================================================================================
+                           HOW TO UPDATE THE API
+================================================================================
+
+1. Make changes to the local files in:
+   C:\Users\YADAV KISHAN KUMAR\OneDrive\Desktop\report_engine\
+
+2. Push changes to GitHub:
+   git add .
+   git commit -m "Your commit message"
+   git push
+
+3. Railway automatically deploys the new version (takes ~1-2 minutes)
+
+4. Monitor deployment at:
+   https://railway.app/project/laudable-joy
+
+================================================================================
+                           n8n CONFIGURATION
+================================================================================
+
+HTTP REQUEST NODE (Script 2: Generate PPT):
+  - Method:         POST
+  - URL:            https://fluffy-lamp-production.up.railway.app/generate-ppt
+  - Body Type:      JSON
+  - Response:       Binary (file download)
+
+================================================================================
+                           MONITORING & LOGS
+================================================================================
+
+VIEW LOGS:
+1. Go to https://railway.app
+2. Click on "fluffy-lamp" service
+3. Click "Deploy Logs" for application logs
+4. Click "HTTP Logs" for request logs
+
+HEALTH CHECK:
+  GET https://fluffy-lamp-production.up.railway.app/health
+
+================================================================================
+                           TROUBLESHOOTING
+================================================================================
+
+ISSUE: 502 Bad Gateway
+CAUSE: App crashed or wrong port configuration
+FIX:   Check Deploy Logs for error, ensure Target Port = 8080
+
+ISSUE: "gunicorn: command not found"
+CAUSE: gunicorn not in requirements.txt
+FIX:   Add "gunicorn>=21.0.0" to requirements.txt and push
+
+ISSUE: BOM Code showing wrong/empty
+CAUSE: Yahoo Finance API blocked or unknown stock
+FIX:   Add stock to KNOWN_BSE_CODES in ppt_generator.py
+
+================================================================================
+                           IMPORTANT NOTES
+================================================================================
+
+1. FREE TIER LIMITS:
+   - 500 hours/month execution time
+   - $5 credit per month
+   - No sleep/spin-down (always running)
+
+2. AUTO-DEPLOYMENT:
+   - Every push to 'main' branch triggers deployment
+   - Takes 1-2 minutes to deploy
+
+3. TEMPLATE FILE:
+   - master_template.pptx is included in the deployment
+   - To update template: modify locally and push to GitHub
+
+4. OUTPUT FILES:
+   - Generated PPTs are created in memory
+   - Files are NOT stored on Railway (returned directly to client)
+
+================================================================================
+                           CONTACT & SUPPORT
+================================================================================
+
+Railway Documentation:  https://docs.railway.com
+Railway Help Station:   https://station.railway.com
+GitHub Repository:      https://github.com/kishanyash/fluffy-lamp
+
+================================================================================

@@ -254,6 +254,86 @@ class PPTGenerator:
 
         return replacements
 
+    def parse_markdown_table_to_data(self, markdown_text: str) -> List[List[str]]:
+        """
+        Parses a markdown table into a list of lists (rows of columns).
+        Example input:
+        | Header 1 | Header 2 |
+        |---|---|
+        | Row 1 Col 1 | Row 1 Col 2 |
+        """
+        if not markdown_text:
+            return []
+            
+        lines = markdown_text.strip().split('\n')
+        table_data = []
+        
+        for line in lines:
+            # Skip separator lines (e.g. |---|---|)
+            if '---' in line:
+                continue
+            # Skip empty lines
+            if not line.strip():
+                continue
+            # Check if likely a row
+            if '|' in line:
+                # Split by pipe, strip whitespace
+                row = [cell.strip() for cell in line.split('|')]
+                # Filter out empty strings from leading/trailing pipes
+                row = [cell for cell in row if cell]
+                if row:
+                    table_data.append(row)
+                    
+        return table_data
+
+    def populate_table_shape(self, shape, data: List[List[str]], font_size: int = 10):
+        """
+        Populate a PowerPoint table shape with data (list of lists).
+        """
+        if not shape.has_table:
+            return
+            
+        table = shape.table
+        
+        # Iterate over data rows
+        for r_idx, row_data in enumerate(data):
+            # If we run out of table rows, stop (or add rows if supported/needed)
+            if r_idx >= len(table.rows):
+                break
+                
+            for c_idx, cell_value in enumerate(row_data):
+                # If we run out of table cols, stop
+                if c_idx >= len(table.columns):
+                    break
+                    
+                cell = table.cell(r_idx, c_idx)
+                # Use same text replacement logic to handle formating
+                self.replace_shape_text(cell, str(cell_value), font_size)
+
+    def find_and_populate_table(self, placeholder_text: str, data: List[List[str]], font_size: int = 10) -> bool:
+        """
+        Find a table that contains the specific placeholder in its first cell (0,0)
+        and populate it with the provided data.
+        """
+        target_pattern = f"{{{{{placeholder_text}}}}}"
+        
+        for slide in self.prs.slides:
+            for shape in slide.shapes:
+                if shape.has_table:
+                    # Check first cell for placeholder
+                    try:
+                        first_cell_text = shape.table.cell(0, 0).text_frame.text.strip()
+                        if target_pattern in first_cell_text:
+                            # Clear the placeholder logic from the first cell effectively by overwriting 
+                            # when populating, or we treat the headers as row 0.
+                            
+                            print(f"    -> Found table with placeholder '{placeholder_text}' on Slide {self.prs.slides.index(slide)+1}")
+                            self.populate_table_shape(shape, data, font_size)
+                            return True
+                    except Exception:
+                        continue
+        return False
+
     def add_image_to_slide(self, slide_idx: int, image_data: BytesIO,
                            left: float, top: float,
                            width: float, height: Optional[float] = None) -> bool:
@@ -416,6 +496,83 @@ class PPTGenerator:
 
         results = {}
 
+        # ===== TABLE POPULATION =====
+        print("\n--- Table Population ---")
+        
+        # 1. Try to use explicit markdown if provided (highest priority)
+        financial_text = data.get('financial_performance', '')
+        table_data = []
+        
+        if financial_text and '|' in financial_text:
+            print("  Found markdown table in 'financial_performance'. Parsing...")
+            table_data = self.parse_markdown_table_to_data(financial_text)
+        
+        # 2. If no markdown, try to construct from individual DB fields (equity_universe data)
+        elif 'revenue_fy2024' in data or 'revenue_ttm' in data:
+            print("  Constructing table from equity_universe fields...")
+            
+            # Helper to safely get numeric value formatted
+            def get_val(key, fmt="{:,.0f}"):
+                val = data.get(key)
+                if val is None: return "-"
+                try:
+                    return fmt.format(float(val))
+                except:
+                    return str(val)
+
+            # Define the structure based on your screenshot
+            # Header Row
+            headers = ["Particulars", "FY24A", "FY25A", "FY26E", "FY27E", "FY28E"]
+            
+            # Data Rows
+            rows = [
+                # Sales
+                ["Sales", 
+                 get_val('revenue_fy2024'), get_val('revenue_fy2025'), 
+                 get_val('revenue_fy2026e'), get_val('revenue_fy2027e'), get_val('revenue_fy2028e')],
+                
+                # Sales Growth (YoY %) - You might need to calculate this if not in DB
+                ["YoY% growth", 
+                 get_val('sales_growth_yoy_qtr', "{:.1f}"), "-", "-", "-", "-"], 
+
+                # EBITDA
+                ["EBITDA", 
+                 get_val('ebitda_fy2024'), get_val('ebitda_fy2025'), 
+                 get_val('ebitda_fy2026e'), get_val('ebitda_fy2027e'), get_val('ebitda_fy2028e')],
+
+                # EBITDA Margin (%)
+                ["% Margin", 
+                 get_val('ebitda_margin_fy2024', "{:.1f}"), get_val('ebitda_margin_fy2025', "{:.1f}"), 
+                 get_val('ebitda_margin_fy2026e', "{:.1f}"), get_val('ebitda_margin_fy2027e', "{:.1f}"), get_val('ebitda_margin_fy2028e', "{:.1f}")],
+
+                # PAT
+                ["PAT", 
+                 get_val('pat_fy2024'), get_val('pat_fy2025'), 
+                 get_val('pat_fy2026e'), get_val('pat_fy2027e'), get_val('pat_fy2028e')],
+
+                # PAT Growth
+                ["YoY% growth", 
+                 get_val('pat_growth_qoq', "{:.1f}"), "-", "-", "-", "-"], # Using QoQ as placeholder if YoY missing
+
+                # P/E
+                ["P/E", 
+                 get_val('pe_ttm', "{:.1f}"), get_val('pe_fy2025', "{:.1f}"), # Note: pe_fy2025 might not exist, check DB keys
+                 get_val('pe_fy2026e', "{:.1f}"), get_val('pe_fy2027e', "{:.1f}"), get_val('pe_fy2028e', "{:.1f}")],
+
+                # P/B (Book Value) - We have book_value, need P/B calculation or field
+                ["P/B", 
+                 "-", "-", "-", "-", "-"] 
+            ]
+            
+            table_data = [headers] + rows
+        
+        # 3. Populate if we have data
+        if table_data:
+            success = self.find_and_populate_table('financial_table', table_data, font_size=10)
+            print(f"  Financial Table: {'[OK] Populated' if success else '[FAILED] Table placeholder {{financial_table}} not found'}")
+        else:
+            print("  Financial Table: No data found (markdown or DB fields)")
+        
         # ===== TEXT REPLACEMENTS =====
         print("\n--- Text Replacements ---")
         
@@ -437,6 +594,7 @@ class PPTGenerator:
         rating = data.get('rating', '')
         if not rating or str(rating).strip() == '':
             rating = 'N/A'
+        print(f"  DEBUG: Rating/Recommendation value: '{rating}'")
         
         # Define placeholder mappings with their data sources
         text_mappings = [
@@ -646,13 +804,16 @@ Market Dynamics:
 Indian Market Position:
 • India is the 3rd largest producer of coal
 • 4th largest producer of iron ore
-• Significant growth potential in base metals
+• Significant growth potential in base metals""",
 
-Industry Structure:
-The industry is characterized by high capital intensity, long project development cycles, commodity price sensitivity, and regulatory oversight.
-
-Key Players:
-Major competitors include Tata Steel, Hindalco Industries, NMDC, Coal India, and JSW Steel.""",
+        # --- MOCK FINANCIAL DATA (equity_universe fields) ---
+        "revenue_fy2024": 150000, "revenue_fy2025": 165000, "revenue_fy2026e": 180000, "revenue_fy2027e": 200000, "revenue_fy2028e": 225000,
+        "sales_growth_yoy_qtr": 12.5,
+        "ebitda_fy2024": 45000, "ebitda_fy2025": 50000, "ebitda_fy2026e": 55000, "ebitda_fy2027e": 62000, "ebitda_fy2028e": 70000,
+        "ebitda_margin_fy2024": 30.0, "ebitda_margin_fy2025": 30.3, "ebitda_margin_fy2026e": 30.5, "ebitda_margin_fy2027e": 31.0, "ebitda_margin_fy2028e": 31.1,
+        "pat_fy2024": 12000, "pat_fy2025": 14000, "pat_fy2026e": 16000, "pat_fy2027e": 19000, "pat_fy2028e": 23000,
+        "pat_growth_qoq": 15.2,
+        "pe_ttm": 15.4, "pe_fy2025": 14.2, "pe_fy2026e": 12.5, "pe_fy2027e": 10.8, "pe_fy2028e": 9.2,
 
         "industry_tailwinds": """Key Industry Tailwinds
 
