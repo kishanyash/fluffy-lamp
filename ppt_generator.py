@@ -57,16 +57,16 @@ class PPTGenerator:
             'position': {'left': 5.10, 'top': 4.3, 'width': 4.8, 'height': 2.2}
         },
         'summary_table': {
-            'slide': 8,  # Slide 9 (Summary in Tables)
+            'slide': 10,  # Slide 11 (Summary in Tables)
             'position': {'left': 0.5, 'top': 0.75, 'width': 9.0, 'height': 4.5}
         },
         'chart_custom': {
-            'slide': 9,  # Slide 10 (Summary in Charts)
+            'slide': 11,  # Slide 12 (Summary in Charts)
             'position': {'left': 0.5, 'top': 0.75, 'width': 9.0, 'height': 4.5}
         },
         'price_chart': {
-             'slide': 0, # Slide 1 (Title)
-             'position': {'left': 7.0, 'top': 2.0, 'width': 3.0, 'height': 2.0}
+             'slide': 10,  # Slide 11 (Top Right position based on {{prize_chart}})
+             'position': {'left': 5.5, 'top': 1.6, 'width': 4.3, 'height': 2.5}
         },
     }
 
@@ -204,6 +204,39 @@ class PPTGenerator:
             break
         
         return True
+
+    def replace_placeholder_with_image(self, placeholder_name: str, image_data: BytesIO) -> bool:
+        """
+        Find a shape containing {{placeholder_name}}, get its position/size,
+        remove the placeholder text/shape, and insert the image in its place.
+        """
+        slide_obj, shape_obj = self.find_shape_with_placeholder(placeholder_name)
+        
+        if not slide_obj or not shape_obj:
+            print(f"    -> Placeholder '{{{{{placeholder_name}}}}}' not found for image replacement.")
+            return False
+            
+        # Get geometry
+        left = shape_obj.left
+        top = shape_obj.top
+        width = shape_obj.width
+        height = shape_obj.height
+        
+        # Insert image
+        try:
+            image_data.seek(0)
+            slide_obj.shapes.add_picture(image_data, left, top, width, height)
+            
+            # Clear the placeholder text/shape so it doesn't show behind
+            # We can't easily delete shapes in python-pptx without accessing xml, 
+            # so we just clear the text.
+            if shape_obj.has_text_frame:
+                shape_obj.text_frame.clear()
+                
+            return True
+        except Exception as e:
+            print(f"    -> Error inserting image at placeholder: {e}")
+            return False
 
     def find_and_replace_placeholder(self, placeholder_name: str, new_text: str, font_size: int = 10) -> int:
         """
@@ -509,15 +542,19 @@ class PPTGenerator:
         table_data = []
         financial_text_summary = ""
         
+        has_markdown_table = False
         if financial_val and '|' in str(financial_val):
-            print("  Found markdown table in 'financial_performance'. Parsing...")
-            table_data = self.parse_markdown_table_to_data(str(financial_val))
+             has_markdown_table = True
+             print("  Found markdown table in 'financial_performance'. Parsing...")
+             table_data = self.parse_markdown_table_to_data(str(financial_val))
         else:
-            print("  'financial_performance' appears to be text summary.")
-            financial_text_summary = str(financial_val) if financial_val else ""
+             # It acts as text summary if not a table
+             if financial_val:
+                 print("  'financial_performance' appears to be text summary.")
+                 financial_text_summary = str(financial_val)
         
-        # 2. If no markdown, try to construct from individual DB fields (equity_universe data)
-        elif 'revenue_fy2024' in data or 'revenue_ttm' in data:
+        # 2. If no markdown table found, try to construct from individual DB fields
+        if not has_markdown_table and ('revenue_fy2024' in data or 'revenue_ttm' in data):
             print("  Constructing table from equity_universe fields...")
             
             # Helper to safely get numeric value formatted
@@ -623,7 +660,7 @@ class PPTGenerator:
             # --- NEW FIELDS ---
             ('market_positioning', self.parse_markdown_to_text(data.get('market_positioning', '')), None),
             ('financial_performance', financial_text_summary, None),
-            ('growth_outlook', self.parse_markdown_to_text(data.get('growth_outlook', '')), None),
+            ('grow_outlook', self.parse_markdown_to_text(data.get('growth_outlook', '')), None), # Mapped from 'growth_outlook' data to 'grow_outlook' placeholder
             ('valuation_recommendation', self.parse_markdown_to_text(data.get('valuation_recommendation', '')), None),
             ('key_risks', self.parse_markdown_to_text(data.get('key_risks', '')), None),
             ('company_insider', self.parse_markdown_to_text(data.get('company_insider', '')), None),
@@ -631,29 +668,22 @@ class PPTGenerator:
             # Scripts
             ('podcast_script', self.parse_markdown_to_text(data.get('podcast_script', '')), None),
             ('video_script', self.parse_markdown_to_text(data.get('video_script', '')), None),
-
-            # Clear these placeholders as they will be replaced by images
-            ('summary_table', ' ', None),  
-            ('chart_custom', ' ', None),
-            ('price_chart', ' ', None),
+            
+            # Note: We clear image placeholders here ('prize_chart', 'financial_table') 
+            # because we are using fixed positioning for them now.
+            ('prize_chart', ' ', None),
+            ('financial_table', ' ', None),
         ]
 
         for placeholder, value, fixed_font_size in text_mappings:
             if value:
-                # Calculate font size if not fixed
                 if fixed_font_size:
                     font_size = fixed_font_size
                 else:
                     font_size = self.calculate_font_size(value)
                 
-                # Limit text length to prevent extreme overflow - REMOVED LIMIT
-                # max_chars = 3000
-                # if len(value) > max_chars:
-                #    value = value[:max_chars] + "\n\n[Content truncated...]"
-                
                 count = self.find_and_replace_placeholder(placeholder, value, font_size)
                 results[placeholder] = count > 0
-                
                 char_info = f"{len(value)} chars, {font_size}pt"
                 status = f"[OK] Replaced ({char_info})" if count > 0 else "[MISSING] Placeholder not found"
                 print(f"  {placeholder}: {status}")
@@ -664,40 +694,75 @@ class PPTGenerator:
         # ===== IMAGE INSERTIONS =====
         print("\n--- Image Insertions ---")
         
-        image_fields = {
-            'chart_profit_loss': data.get('chart_profit_loss'),
-            'chart_balance_sheet': data.get('chart_balance_sheet'),
-            'chart_cash_flow': data.get('chart_cash_flow'),
-            'chart_ratio_analysis': data.get('chart_ratio_analysis'),
-            'summary_table': data.get('summary_table'),  # Slide 9 Image
-            'chart_custom': data.get('chart_custom'),    # Slide 10 Image
-            'price_chart': data.get('price_chart'),      # New chart
+        # 1. Dynamic Replacement (using placeholders)
+        dynamic_images = {}
+        
+        for name, info in dynamic_images.items():
+            url = info['url']
+            placeholder = info['placeholder']
+            
+            if url and url not in ("[null]", "null", None, ""):
+                print(f"  {name} (via {{{{{placeholder}}}}}):")
+                image_data = self.download_image(url)
+                if image_data:
+                    success = self.replace_placeholder_with_image(placeholder, image_data)
+                    results[name] = success
+                    print(f"    -> {'[OK] Replaced placeholder' if success else '[FAILED] Placeholder not found'}")
+                else:
+                     results[name] = False
+                     print("    -> [FAILED] Download failed")
+            else:
+                results[name] = False
+                print(f"  {name}: [MISSING] No URL provided")
+
+        # 2. Fixed Position Replacement (Slide 12 / others)
+        fixed_images = {
+            'chart_custom': { 
+                'url': data.get('chart_custom'), 
+                'slide': 11, # Slide 12
+                'pos': {'left': 0.5, 'top': 0.75, 'width': 9.0, 'height': 4.5} 
+            },
+            'price_chart_slide3': { 
+                'url': data.get('price_chart'), 
+                'slide': 2, # Slide 3
+                # User provided: Width 12.28 cm, Height 3.55 cm
+                # Converted to inches: W=4.83, H=1.40
+                # Position estimated from screenshot: Top Right area
+                'pos': {'left': 5.0, 'top': 1.2, 'width': 4.83, 'height': 2.0} 
+            },
+            'summary_table_slide11': { 
+                'url': data.get('summary_table'), 
+                'slide': 10, # Slide 11
+                'pos': {'left': 0.5, 'top': 0.75, 'width': 9.0, 'height': 4.5} 
+            },
+            'chart_profit_loss': { 'url': data.get('chart_profit_loss'), 'slide': 8, 'pos': self.CHART_POSITIONS.get('chart_profit_loss', {}).get('position') },
+            'chart_balance_sheet': { 'url': data.get('chart_balance_sheet'), 'slide': 8, 'pos': self.CHART_POSITIONS.get('chart_balance_sheet', {}).get('position') },
+            'chart_cash_flow': { 'url': data.get('chart_cash_flow'), 'slide': 8, 'pos': self.CHART_POSITIONS.get('chart_cash_flow', {}).get('position') },
+            'chart_ratio_analysis': { 'url': data.get('chart_ratio_analysis'), 'slide': 8, 'pos': self.CHART_POSITIONS.get('chart_ratio_analysis', {}).get('position') },
         }
 
-        for field_name, url in image_fields.items():
+        for name, info in fixed_images.items():
+            url = info['url']
             if url and url not in ("[null]", "null", None, ""):
-                config = self.CHART_POSITIONS.get(field_name)
-                if config:
-                    print(f"  {field_name}:")
-                    image_data = self.download_image(url)
-                    if image_data:
-                        pos = config.get('position', {})
+                print(f"  {name}:")
+                image_data = self.download_image(url)
+                if image_data:
+                    slide_idx = info['slide']
+                    pos = info['pos']
+                    if pos:
                         success = self.add_image_to_slide(
-                            config['slide'],
-                            image_data,
-                            left=pos.get('left', 1.0),
-                            top=pos.get('top', 1.5),
-                            width=pos.get('width', 8.0),
-                            height=pos.get('height')
+                            slide_idx, image_data, 
+                            left=pos.get('left'), top=pos.get('top'), 
+                            width=pos.get('width'), height=pos.get('height')
                         )
-                        results[field_name] = success
-                        print(f"    -> Slide {config['slide'] + 1}: {'[OK] Added' if success else '[FAILED]'}")
-                    else:
-                        results[field_name] = False
-                        print(f"    -> [FAILED] Download failed")
+                        results[name] = success
+                        print(f"    -> Slide {slide_idx+1}: {'[OK] Added' if success else '[FAILED]'}")
+                else:
+                    results[name] = False
+                    print(f"    -> [FAILED] Download failed")
             else:
-                results[field_name] = False
-                print(f"  {field_name}: [MISSING] No URL provided")
+                results[name] = False
+                print(f"  {name}: [MISSING] No URL provided")
 
         return results
 

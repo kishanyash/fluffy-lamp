@@ -1,0 +1,74 @@
+Template Analysis for: master_template.pptx
+Total Slides: 13
+
+--- Slide 1 ---
+  TEXT: {{company_name}}
+  TEXT: NSE:{{nse_symbol}} | BOM:{{bom_code}} | Rating: {{recommendation}}
+Date: {{today_date}}
+
+--- Slide 2 ---
+  TEXT: - Market Positioning: {{market_positioning}}
+- Financial Performance:.{{financial_performance}}
+- Growth & Outlook: {{grow_outlook}}
+- Valuation & Recommendation: {{valuation_recommendation}}
+- Key Risks: {{key_risks}}
+
+--- Slide 3 ---
+  TEXT: {{company_insider}}
+  TEXT: {{prize_chart}}
+  TEXT: {{financial_table}}
+
+--- Slide 4 ---
+  TEXT: {{company_background}}
+
+--- Slide 5 ---
+  TEXT: {{business_model}}
+
+--- Slide 6 ---
+  TEXT: {{management_analysis}}
+
+--- Slide 7 ---
+  TEXT: {{industry_overview}}
+
+--- Slide 8 ---
+  TEXT: {{industry_tailwinds}}
+
+--- Slide 9 ---
+  TEXT: {{demand_drivers}}
+
+--- Slide 10 ---
+  TEXT: {{industry_risk}}
+
+--- Slide 11 ---
+  TEXT: {{summary_table}}
+
+--- Slide 12 ---
+  TEXT: {{chart_custom}}
+
+--- Slide 13 ---
+(No placeholders found)
+
+
+=== SUMMARY OF PLACEHOLDERS FOUND ===
+- bom_code
+- business_model
+- chart_custom
+- company_background
+- company_insider
+- company_name
+- demand_drivers
+- financial_performance
+- financial_table
+- grow_outlook
+- industry_overview
+- industry_risk
+- industry_tailwinds
+- key_risks
+- management_analysis
+- market_positioning
+- nse_symbol
+- prize_chart
+- recommendation
+- summary_table
+- today_date
+- valuation_recommendation
