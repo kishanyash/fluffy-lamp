@@ -371,6 +371,59 @@ class PPTGenerator:
                         continue
         return False
 
+    def create_table_on_slide(self, slide_idx: int, data: List[List[str]], 
+                              left: float, top: float, width: float, height: float) -> bool:
+        """
+        Create a new table on a specific slide and populate it with styling.
+        """
+        if slide_idx >= len(self.prs.slides):
+            return False
+            
+        if not data:
+            return False
+            
+        rows = len(data)
+        cols = len(data[0])
+        
+        try:
+            slide = self.prs.slides[slide_idx]
+            graphic_frame = slide.shapes.add_table(rows, cols, Inches(left), Inches(top), Inches(width), Inches(height))
+            table = graphic_frame.table
+            
+            # Populate data and style
+            for r, row_data in enumerate(data):
+                for c, cell_value in enumerate(row_data):
+                    cell = table.cell(r, c)
+                    cell.text = str(cell_value)
+                    
+                    # Text Styling
+                    if cell.text_frame.paragraphs:
+                        para = cell.text_frame.paragraphs[0]
+                        para.font.size = Pt(9)
+                        para.font.name = "Arial"
+                        para.alignment = PP_ALIGN.CENTER if c > 0 else PP_ALIGN.LEFT
+                        
+                    # Row Styling
+                    cell.fill.solid()
+                    if r == 0:
+                        # Header: Dark Blue
+                        cell.fill.fore_color.rgb = RGBColor(0, 51, 153)
+                        if cell.text_frame.paragraphs:
+                            para = cell.text_frame.paragraphs[0]
+                            para.font.bold = True
+                            para.font.color.rgb = RGBColor(255, 255, 255)
+                    elif r % 2 == 0:
+                        # Even index rows (2, 4, 6...) - Light Orange
+                        cell.fill.fore_color.rgb = RGBColor(255, 235, 205)
+                    else:
+                        # Odd index rows (1, 3, 5...) - White
+                        cell.fill.fore_color.rgb = RGBColor(255, 255, 255)
+            
+            return True
+        except Exception as e:
+            print(f"    Error creating table: {e}")
+            return False
+
     def add_image_to_slide(self, slide_idx: int, image_data: BytesIO,
                            left: float, top: float,
                            width: float, height: Optional[float] = None) -> bool:
@@ -533,6 +586,41 @@ class PPTGenerator:
 
         results = {}
 
+        # --- PRE-CALCULATE METRICS (Growth, Margins) ---
+        # Enrich data dictionary with calculated values so placeholders work
+        years = [24, 25, 26, 27, 28]
+        for y in years:
+            prev_y = y - 1
+            
+            # Helper to parse
+            def p_float(v):
+                if v is None or v == '' or v == '-': return None
+                try: 
+                    if isinstance(v, str): v = v.replace(',', '')
+                    return float(v)
+                except: return None
+
+            # 1. Margins
+            rev = p_float(data.get(f'revenue_fy{y}'))
+            ebit = p_float(data.get(f'ebitda_fy{y}'))
+            if rev is not None and ebit is not None and rev != 0:
+                margin = (ebit / rev) * 100
+                data[f'ebitda_margin_fy{y}'] = "{:.1f}".format(margin)
+
+            # 2. Growth
+            for metric in ['revenue', 'ebitda', 'pat']:
+                curr = p_float(data.get(f'{metric}_fy{y}'))
+                prev = p_float(data.get(f'{metric}_fy{prev_y}'))
+                
+                if curr is not None and prev is not None and prev != 0:
+                    growth = ((curr - prev) / abs(prev)) * 100
+                    formatted_growth = "{:.1f}".format(growth)
+                    data[f'{metric}_growth_fy{y}'] = formatted_growth
+                    
+                    # Alias 'revenue_growth' to 'sales_growth' for convenience
+                    if metric == 'revenue':
+                        data[f'sales_growth_fy{y}'] = formatted_growth
+
         # ===== TABLE POPULATION =====
         print("\n--- Table Population ---")
         
@@ -554,7 +642,137 @@ class PPTGenerator:
                  financial_text_summary = str(financial_val)
         
         # 2. If no markdown table found, try to construct from individual DB fields
-        if not has_markdown_table and ('revenue_fy2024' in data or 'revenue_ttm' in data):
+        # 2. Financial Table Construction (New Logic - Slide 3)
+        if not has_markdown_table:
+            print("  Constructing table from new financial keys...")
+            
+            # Helper to safely parse float
+            def safe_float(val):
+                if val is None or val == '' or val == '-': return None
+                try:
+                    if isinstance(val, str):
+                        val = val.replace(',', '').strip()
+                    return float(val)
+                except:
+                    return None
+
+            # Helper to calculate YoY Growth %
+            def calc_growth(current_val, prev_val):
+                curr = safe_float(current_val)
+                prev = safe_float(prev_val)
+                if curr is not None and prev is not None and prev != 0:
+                    growth = ((curr - prev) / abs(prev)) * 100
+                    return "{:.1f}".format(growth)
+                return "-"
+
+            # Helper to calculate Margin %
+            def calc_margin(numerator_val, denominator_val):
+                num = safe_float(numerator_val)
+                den = safe_float(denominator_val)
+                if num is not None and den is not None and den != 0:
+                    margin = (num / den) * 100
+                    return "{:.1f}".format(margin)
+                return "-"
+
+            # Helper to safely get numeric value formatted (direct lookup)
+            def get_val_fmt(key, fmt="{:,.0f}", multiplier=1.0):
+                val = safe_float(data.get(key))
+                if val is not None:
+                     return fmt.format(val * multiplier)
+                return "-"
+
+            # Base Metrics
+            sales_24 = data.get('revenue_fy24')
+            sales_25 = data.get('revenue_fy25')
+            sales_26 = data.get('revenue_fy26')
+            sales_27 = data.get('revenue_fy27')
+            sales_28 = data.get('revenue_fy28')
+
+            ebitda_24 = data.get('ebitda_fy24')
+            ebitda_25 = data.get('ebitda_fy25')
+            ebitda_26 = data.get('ebitda_fy26')
+            ebitda_27 = data.get('ebitda_fy27')
+            ebitda_28 = data.get('ebitda_fy28')
+
+            pat_24 = data.get('pat_fy24')
+            pat_25 = data.get('pat_fy25')
+            pat_26 = data.get('pat_fy26')
+            pat_27 = data.get('pat_fy27')
+            pat_28 = data.get('pat_fy28')
+
+            # Headers
+            headers = ["Particulars", "FY24A", "FY25A", "FY26E", "FY27E", "FY28E"]
+            
+            # Data Rows with Calculations
+            rows = [
+                # Sales (Direct)
+                ["Sales", 
+                 get_val_fmt('revenue_fy24'), get_val_fmt('revenue_fy25'), 
+                 get_val_fmt('revenue_fy26'), get_val_fmt('revenue_fy27'), get_val_fmt('revenue_fy28')],
+                
+                # Sales Growth (Calculated)
+                ["YoY% growth", 
+                 calc_growth(sales_24, data.get('revenue_fy23')), # Need FY23 for FY24 growth, else use provided key
+                 calc_growth(sales_25, sales_24), 
+                 calc_growth(sales_26, sales_25), 
+                 calc_growth(sales_27, sales_26), 
+                 calc_growth(sales_28, sales_27)],
+
+                # EBITDA (Direct)
+                ["EBITDA", 
+                 get_val_fmt('ebitda_fy24'), get_val_fmt('ebitda_fy25'), 
+                 get_val_fmt('ebitda_fy26'), get_val_fmt('ebitda_fy27'), get_val_fmt('ebitda_fy28')],
+
+                # EBITDA Margin (Calculated: EBITDA / Sales)
+                ["% Margin", 
+                 calc_margin(ebitda_24, sales_24), calc_margin(ebitda_25, sales_25), 
+                 calc_margin(ebitda_26, sales_26), calc_margin(ebitda_27, sales_27), calc_margin(ebitda_28, sales_28)],
+
+                # EBITDA Growth (Calculated)
+                ["YoY% growth", 
+                 calc_growth(ebitda_24, data.get('ebitda_fy23')),
+                 calc_growth(ebitda_25, ebitda_24), 
+                 calc_growth(ebitda_26, ebitda_25), 
+                 calc_growth(ebitda_27, ebitda_26), 
+                 calc_growth(ebitda_28, ebitda_27)],
+
+                # PAT (Direct)
+                ["PAT", 
+                 get_val_fmt('pat_fy24'), get_val_fmt('pat_fy25'), 
+                 get_val_fmt('pat_fy26'), get_val_fmt('pat_fy27'), get_val_fmt('pat_fy28')],
+
+                # PAT Growth (Calculated)
+                ["YoY% growth", 
+                 calc_growth(pat_24, data.get('pat_fy23')),
+                 calc_growth(pat_25, pat_24), 
+                 calc_growth(pat_26, pat_25), 
+                 calc_growth(pat_27, pat_26), 
+                 calc_growth(pat_28, pat_27)],
+                
+                # P/E (Direct - difficult to calculate without Price history)
+                ["P/E", 
+                 get_val_fmt('pe_fy24', "{:.1f}"), get_val_fmt('pe_fy25', "{:.1f}"), 
+                 get_val_fmt('pe_fy26', "{:.1f}"), get_val_fmt('pe_fy27', "{:.1f}"), get_val_fmt('pe_fy28', "{:.1f}")],
+
+                # P/B (Direct)
+                ["P/B", 
+                 get_val_fmt('pb_fy24', "{:.1f}"), get_val_fmt('pb_fy25', "{:.1f}"), 
+                 get_val_fmt('pb_fy26', "{:.1f}"), get_val_fmt('pb_fy27', "{:.1f}"), get_val_fmt('pb_fy28', "{:.1f}")] 
+            ]
+            
+            table_data = [headers] + rows
+             
+            # Create Table on Slide 3 (Index 2)
+            # Position: Below chart. Chart Bottom = ~3.2. Start Table at 3.3.
+            # Width matches chart: 4.83.
+            # DISABLED: User wants to use manual placeholders + custom table in template
+            # if self.create_table_on_slide(2, table_data, left=5.0, top=3.3, width=4.83, height=2.5):
+            #     print(f"  Financial Table (Slide 3): [OK] Created")
+            # else:
+            #     print(f"  Financial Table (Slide 3): [FAILED] Could not create")
+
+        # OLD LOGIC DISABLED (Skipped)
+        if False and ('revenue_fy2024' in data or 'revenue_ttm' in data):
             print("  Constructing table from equity_universe fields...")
             
             # Helper to safely get numeric value formatted
@@ -669,11 +887,35 @@ class PPTGenerator:
             ('podcast_script', self.parse_markdown_to_text(data.get('podcast_script', '')), None),
             ('video_script', self.parse_markdown_to_text(data.get('video_script', '')), None),
             
-            # Note: We clear image placeholders here ('prize_chart', 'financial_table') 
-            # because we are using fixed positioning for them now.
+            # Note: We do clear image placeholders here because we are using fixed positioning for them now.
             ('prize_chart', ' ', None),
             ('financial_table', ' ', None),
         ]
+        
+        # --- DYNAMIC FINANCIAL PLACEHOLDERS ---
+        # Allows user to use {{revenue_fy24}}, {{ebitda_margin_fy25}}, etc. in PPT if they wish
+        financial_prefixes = ['revenue', 'sales', 'ebitda', 'pat', 'pe', 'pb']
+        years = ['fy24', 'fy25', 'fy26', 'fy27', 'fy28', 'ttm']
+        suffixes = ['', '_growth', '_margin']
+        
+        for p in financial_prefixes:
+            for y in years:
+                for s in suffixes:
+                    key = f"{p}{s}_{y}" # e.g. revenue_fy24, ebitda_margin_fy25
+                    if key in data:
+                        # Add to mappings if data exists
+                        val = str(data.get(key, '-'))
+                        # Format numbers nicely if possible
+                        try:
+                            fval = float(val.replace(',', ''))
+                            # If margin or small number, 1 decimal. If large, 0 decimals.
+                            if 'margin' in s or 'growth' in s or fval < 100:
+                                val = "{:.1f}".format(fval)
+                            else:
+                                val = "{:,.0f}".format(fval)
+                        except:
+                            pass
+                        text_mappings.append((key, val, 12)) # Font size 12 for "small placeholders"
 
         for placeholder, value, fixed_font_size in text_mappings:
             if value:
@@ -686,10 +928,9 @@ class PPTGenerator:
                 results[placeholder] = count > 0
                 char_info = f"{len(value)} chars, {font_size}pt"
                 status = f"[OK] Replaced ({char_info})" if count > 0 else "[MISSING] Placeholder not found"
-                print(f"  {placeholder}: {status}")
+                # print(f"  {placeholder}: {status}") # Reduce noise
             else:
-                results[placeholder] = False
-                print(f"  {placeholder}: [MISSING] No data provided")
+                pass
 
         # ===== IMAGE INSERTIONS =====
         print("\n--- Image Insertions ---")
