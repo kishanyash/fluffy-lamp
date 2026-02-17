@@ -426,8 +426,9 @@ class PPTGenerator:
 
     def add_image_to_slide(self, slide_idx: int, image_data: BytesIO,
                            left: float, top: float,
-                           width: float, height: Optional[float] = None) -> bool:
-        """Add an image to a specific slide."""
+                           width: float, height: Optional[float] = None,
+                           crop: Optional[Dict[str, float]] = None) -> bool:
+        """Add an image to a specific slide with optional cropping."""
         if slide_idx >= len(self.prs.slides):
             print(f"    Warning: Slide {slide_idx + 1} does not exist")
             return False
@@ -435,19 +436,27 @@ class PPTGenerator:
         try:
             slide = self.prs.slides[slide_idx]
             image_data.seek(0)
-
+            
+            pic = None
             if height:
-                slide.shapes.add_picture(
+                pic = slide.shapes.add_picture(
                     image_data, 
                     Inches(left), Inches(top),
                     width=Inches(width), height=Inches(height)
                 )
             else:
-                slide.shapes.add_picture(
+                pic = slide.shapes.add_picture(
                     image_data, 
                     Inches(left), Inches(top),
                     width=Inches(width)
                 )
+            
+            # Apply cropping if provided
+            if crop and pic:
+                if 'left' in crop: pic.crop_left = crop['left']
+                if 'top' in crop: pic.crop_top = crop['top']
+                if 'right' in crop: pic.crop_right = crop['right']
+                if 'bottom' in crop: pic.crop_bottom = crop['bottom']
 
             return True
         except Exception as e:
@@ -939,10 +948,10 @@ class PPTGenerator:
         # 1. Dynamic Replacement (using placeholders)
         # Added financial_table here to replace {{financial_table}} with image from Supabase
         dynamic_images = {
-             'financial_table': {
-                 'url': data.get('financial_table'),
-                 'placeholder': 'financial_table'
-             }
+             # 'financial_table': {
+             #     'url': data.get('financial_table'),
+             #     'placeholder': 'financial_table'
+             # }
         }
         
         for name, info in dynamic_images.items():
@@ -973,20 +982,32 @@ class PPTGenerator:
             'price_chart_slide3': { 
                 'url': data.get('price_chart'), 
                 'slide': 2, # Slide 3
-                # User provided: Width 12.28 cm, Height 3.55 cm
-                # Converted to inches: W=4.83, H=1.40
-                # Position estimated from screenshot: Top Right area
-                'pos': {'left': 5.0, 'top': 1.2, 'width': 4.83, 'height': 2.0} 
+                # User provided Size (cm->inch): W=12.27->4.83, H=5.08->2.0
+                # Position estimated (Top Right) - Moved UP to 0.75 to avoid overlap with table at 2.81
+                'pos': {'left': 5.0, 'top': 0.75, 'width': 4.83, 'height': 2.0} 
+            },
+            'financial_table_slide3': {
+                'url': data.get('financial_table'),
+                'slide': 2, # Slide 3
+                # User provided dimensions/pos (converted cm to inches):
+                # W=12.14cm -> 4.78", H=5.78cm -> 2.28"
+                # Left=12.87cm -> 5.07", Top=7.14cm -> 2.81"
+                'pos': {'left': 5.07, 'top': 2.81, 'width': 4.78, 'height': 2.28}
             },
             'summary_table_slide11': { 
                 'url': data.get('summary_table'), 
                 'slide': 10, # Slide 11
-                'pos': {'left': 0.5, 'top': 0.75, 'width': 9.0, 'height': 4.5} 
+                # User provided crop pos (cm->inch, calculated):
+                # Left=1.52cm -> 0.60"
+                # Top=1.73cm -> 0.68"
+                # Width=21.18cm -> 8.34"
+                # Height=12.2cm -> 4.80"
+                'pos': {'left': 0.60, 'top': 0.68, 'width': 8.34, 'height': 4.80},
+                # Calculated crop percentages (Offsets considered):
+                # W_total=21.74, W_crop=21.18, OffX=0.36 -> R_crop=3.0%, L_crop=0%
+                # H_total=15.69, H_crop=12.2, OffY=-0.34 -> T_crop=13.3%, B_crop=8.9%
+                'crop': {'left': 0.0, 'right': 0.030, 'top': 0.133, 'bottom': 0.089}
             },
-            'chart_profit_loss': { 'url': data.get('chart_profit_loss'), 'slide': 8, 'pos': self.CHART_POSITIONS.get('chart_profit_loss', {}).get('position') },
-            'chart_balance_sheet': { 'url': data.get('chart_balance_sheet'), 'slide': 8, 'pos': self.CHART_POSITIONS.get('chart_balance_sheet', {}).get('position') },
-            'chart_cash_flow': { 'url': data.get('chart_cash_flow'), 'slide': 8, 'pos': self.CHART_POSITIONS.get('chart_cash_flow', {}).get('position') },
-            'chart_ratio_analysis': { 'url': data.get('chart_ratio_analysis'), 'slide': 8, 'pos': self.CHART_POSITIONS.get('chart_ratio_analysis', {}).get('position') },
         }
 
         for name, info in fixed_images.items():
@@ -998,10 +1019,12 @@ class PPTGenerator:
                     slide_idx = info['slide']
                     pos = info['pos']
                     if pos:
+                        crop = info.get('crop')
                         success = self.add_image_to_slide(
                             slide_idx, image_data, 
                             left=pos.get('left'), top=pos.get('top'), 
-                            width=pos.get('width'), height=pos.get('height')
+                            width=pos.get('width'), height=pos.get('height'),
+                            crop=crop
                         )
                         results[name] = success
                         print(f"    -> Slide {slide_idx+1}: {'[OK] Added' if success else '[FAILED]'}")
