@@ -989,10 +989,8 @@ class PPTGenerator:
             'financial_table_slide3': {
                 'url': data.get('financial_table'),
                 'slide': 2, # Slide 3
-                # User provided dimensions/pos (converted cm to inches):
-                # W=12.14cm -> 4.78", H=5.78cm -> 2.28"
-                # Left=12.87cm -> 5.07", Top=7.14cm -> 2.81"
-                'pos': {'left': 5.07, 'top': 2.81, 'width': 4.78, 'height': 2.28}
+                # User requested Width 12cm -> 4.72"
+                'pos': {'left': 5.07, 'top': 2.81, 'width': 4.72, 'height': 2.06}
             },
             'summary_table_slide11': { 
                 'url': data.get('summary_table'), 
