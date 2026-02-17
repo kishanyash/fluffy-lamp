@@ -831,11 +831,12 @@ class PPTGenerator:
             table_data = [headers] + rows
         
         # 3. Populate if we have data
-        if table_data:
-            success = self.find_and_populate_table('financial_table', table_data, font_size=10)
-            print(f"  Financial Table: {'[OK] Populated' if success else '[FAILED] Table placeholder {{financial_table}} not found'}")
-        else:
-            print("  Financial Table: No data found (markdown or DB fields)")
+        # DISABLED: User wants to replace {{financial_table}} with an image, not populate a table
+        # if table_data:
+        #     success = self.find_and_populate_table('financial_table', table_data, font_size=10)
+        #     print(f"  Financial Table: {'[OK] Populated' if success else '[FAILED] Table placeholder {{financial_table}} not found'}")
+        # else:
+        #     print("  Financial Table: No data found (markdown or DB fields)")
         
         # ===== TEXT REPLACEMENTS =====
         print("\n--- Text Replacements ---")
@@ -889,7 +890,7 @@ class PPTGenerator:
             
             # Note: We do clear image placeholders here because we are using fixed positioning for them now.
             ('prize_chart', ' ', None),
-            ('financial_table', ' ', None),
+            # ('financial_table', ' ', None), # Removed so it can be handled as an image
         ]
         
         # --- DYNAMIC FINANCIAL PLACEHOLDERS ---
@@ -936,7 +937,13 @@ class PPTGenerator:
         print("\n--- Image Insertions ---")
         
         # 1. Dynamic Replacement (using placeholders)
-        dynamic_images = {}
+        # Added financial_table here to replace {{financial_table}} with image from Supabase
+        dynamic_images = {
+             'financial_table': {
+                 'url': data.get('financial_table'),
+                 'placeholder': 'financial_table'
+             }
+        }
         
         for name, info in dynamic_images.items():
             url = info['url']
