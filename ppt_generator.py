@@ -153,7 +153,7 @@ class PPTGenerator:
         
         return None, None
 
-    def replace_shape_text(self, shape, new_text: str, font_size: int = 10) -> bool:
+    def replace_shape_text(self, shape, new_text: str, font_size: int = 12, bold: bool = False, align: str = None, color: Tuple[int, int, int] = None) -> bool:
         """
         Replace the entire text content of a shape with new text.
         Properly handles text frame formatting to prevent overflow and overlapping.
@@ -173,8 +173,11 @@ class PPTGenerator:
         tf.margin_right = Inches(0.2)
         tf.margin_bottom = Inches(0.1)
         
-        # Set vertical anchor to top
-        tf.vertical_anchor = MSO_ANCHOR.TOP
+        # Set vertical anchor
+        if align and align.upper() == "CENTER":
+             tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+        else:
+             tf.vertical_anchor = MSO_ANCHOR.TOP
         
         # Clear existing content and set new text
         # First paragraph
@@ -193,7 +196,21 @@ class PPTGenerator:
         
         # Set font properties - let auto-fit handle size usually, but set a max starting point
         run.font.size = Pt(float(font_size)) 
-        run.font.name = "Arial"
+        run.font.name = "Calibri"
+        if bold:
+            run.font.bold = True
+        
+        if color:
+            run.font.color.rgb = RGBColor(*color)
+            
+        # Set alignment
+        if align:
+            if align.upper() == "CENTER":
+                p.alignment = PP_ALIGN.CENTER
+            elif align.upper() == "LEFT":
+                p.alignment = PP_ALIGN.LEFT
+            elif align.upper() == "RIGHT":
+                p.alignment = PP_ALIGN.RIGHT
         
         # Remove any extra paragraphs
         while len(tf.paragraphs) > 1:
@@ -238,7 +255,7 @@ class PPTGenerator:
             print(f"    -> Error inserting image at placeholder: {e}")
             return False
 
-    def find_and_replace_placeholder(self, placeholder_name: str, new_text: str, font_size: int = 10) -> int:
+    def find_and_replace_placeholder(self, placeholder_name: str, new_text: str, font_size: int = 12, bold: bool = False, align: str = None, color: Tuple[int, int, int] = None) -> int:
         """
         Find and replace {{placeholder_name}} with new text.
         Uses proper text replacement to avoid overflow issues.
@@ -265,16 +282,26 @@ class PPTGenerator:
                 # For simple single-placeholder shapes, replace entire content
                 if full_text.strip() == placeholder_pattern:
                     # This is a simple placeholder-only shape
-                    self.replace_shape_text(shape, new_text, font_size)
+                    self.replace_shape_text(shape, new_text, font_size, bold, align, color)
                     replacements += 1
                 else:
                     # Multiple placeholders or mixed content - do inline replacement
+                    # Note: Align parameter is ignored for inline replacements to avoid breaking layout
                     for para in tf.paragraphs:
+                        if align:
+                             if align.upper() == "CENTER": para.alignment = PP_ALIGN.CENTER
+                             elif align.upper() == "LEFT": para.alignment = PP_ALIGN.LEFT
+                             elif align.upper() == "RIGHT": para.alignment = PP_ALIGN.RIGHT
+
                         for run in para.runs:
                             if placeholder_pattern in run.text:
                                 run.text = run.text.replace(placeholder_pattern, new_text)
                                 if font_size:
                                     run.font.size = Pt(font_size)
+                                if bold:
+                                    run.font.bold = True
+                                if color:
+                                    run.font.color.rgb = RGBColor(*color)
                                 replacements += 1
                         
                         # Also try combined runs
@@ -285,6 +312,10 @@ class PPTGenerator:
                                 para.runs[0].text = new_combined
                                 if font_size:
                                     para.runs[0].font.size = Pt(font_size)
+                                if bold:
+                                    para.runs[0].font.bold = True
+                                if color:
+                                    para.runs[0].font.color.rgb = RGBColor(*color)
                                 for run in para.runs[1:]:
                                     run.text = ""
                                 replacements += 1
@@ -323,7 +354,7 @@ class PPTGenerator:
                     
         return table_data
 
-    def populate_table_shape(self, shape, data: List[List[str]], font_size: int = 10):
+    def populate_table_shape(self, shape, data: List[List[str]], font_size: int = 12):
         """
         Populate a PowerPoint table shape with data (list of lists).
         """
@@ -347,7 +378,7 @@ class PPTGenerator:
                 # Use same text replacement logic to handle formating
                 self.replace_shape_text(cell, str(cell_value), font_size)
 
-    def find_and_populate_table(self, placeholder_text: str, data: List[List[str]], font_size: int = 10) -> bool:
+    def find_and_populate_table(self, placeholder_text: str, data: List[List[str]], font_size: int = 12) -> bool:
         """
         Find a table that contains the specific placeholder in its first cell (0,0)
         and populate it with the provided data.
@@ -399,8 +430,9 @@ class PPTGenerator:
                     # Text Styling
                     if cell.text_frame.paragraphs:
                         para = cell.text_frame.paragraphs[0]
-                        para.font.size = Pt(9)
-                        para.font.name = "Arial"
+                        para.font.size = Pt(12)
+                        if hasattr(para, 'font'):
+                            para.font.name = "Calibri"
                         para.alignment = PP_ALIGN.CENTER if c > 0 else PP_ALIGN.LEFT
                         
                     # Row Styling
@@ -503,11 +535,11 @@ class PPTGenerator:
         text_len = len(text)
         
         if text_len < 500:
-            return 11.0  # Standard body text
+            return 12.0  # Standard body text (Updated from 11.0)
         elif text_len < 1000:
-            return 10.5
+            return 11.5
         elif text_len < 1500:
-            return 10.0
+            return 11.0
         elif text_len < 2000:
             return 9.0
         elif text_len < 3000:
@@ -872,30 +904,30 @@ class PPTGenerator:
         
         # Define placeholder mappings with their data sources
         text_mappings = [
-            ('company_name', data.get('company_name', ''), 24),  # Large font for title
+            ('company_name', data.get('company_name', ''), 40, {'bold': True, 'align': 'CENTER', 'color': (255, 255, 255)}),  # Large font, Bold, Center, White
             ('nse_symbol', data.get('nse_symbol', data.get('symbol', '')), 14),
             ('bom_code', bom_code, 14),
             ('recommendation', rating, 14),
             ('today_date', data.get('today_date', datetime.now().strftime('%Y-%m-%d')), 14),
-            ('company_background', self.parse_markdown_to_text(data.get('company_background', '')), None),
-            ('business_model', self.parse_markdown_to_text(data.get('business_model', '')), None),
-            ('management_analysis', self.parse_markdown_to_text(data.get('management_analysis', '')), None),
-            ('industry_overview', self.parse_markdown_to_text(data.get('industry_overview', '')), None),
-            ('industry_tailwinds', self.parse_markdown_to_text(data.get('industry_tailwinds', data.get('key_industry', ''))), None),
-            ('demand_drivers', self.parse_markdown_to_text(data.get('demand_drivers', '')), None),
-            ('industry_risk', self.parse_markdown_to_text(data.get('industry_risks', data.get('industry_risk', ''))), None),
+            ('company_background', self.parse_markdown_to_text(data.get('company_background', '')), 11), # Strict 11
+            ('business_model', self.parse_markdown_to_text(data.get('business_model', '')), 11), # Strict 11
+            ('management_analysis', self.parse_markdown_to_text(data.get('management_analysis', '')), 11), # Strict 11
+            ('industry_overview', self.parse_markdown_to_text(data.get('industry_overview', '')), 11), # Strict 11
+            ('industry_tailwinds', self.parse_markdown_to_text(data.get('industry_tailwinds', data.get('key_industry', ''))), 11), # Strict 11
+            ('demand_drivers', self.parse_markdown_to_text(data.get('demand_drivers', '')), 11), # Strict 11
+            ('industry_risk', self.parse_markdown_to_text(data.get('industry_risks', data.get('industry_risk', ''))), 11), # Strict 11
             
             # --- NEW FIELDS ---
-            ('market_positioning', self.parse_markdown_to_text(data.get('market_positioning', '')), None),
-            ('financial_performance', financial_text_summary, None),
-            ('grow_outlook', self.parse_markdown_to_text(data.get('growth_outlook', '')), None), # Mapped from 'growth_outlook' data to 'grow_outlook' placeholder
-            ('valuation_recommendation', self.parse_markdown_to_text(data.get('valuation_recommendation', '')), None),
-            ('key_risks', self.parse_markdown_to_text(data.get('key_risks', '')), None),
-            ('company_insider', self.parse_markdown_to_text(data.get('company_insider', '')), None),
+            ('market_positioning', self.parse_markdown_to_text(data.get('market_positioning', '')), 11), # Strict 11
+            ('financial_performance', financial_text_summary, 11), # Strict 11
+            ('grow_outlook', self.parse_markdown_to_text(data.get('growth_outlook', '')), 11), # Strict 11 Mapped from 'growth_outlook' data to 'grow_outlook' placeholder
+            ('valuation_recommendation', self.parse_markdown_to_text(data.get('valuation_recommendation', '')), 11), # Strict 11
+            ('key_risks', self.parse_markdown_to_text(data.get('key_risks', '')), 11), # Strict 11
+            ('company_insider', self.parse_markdown_to_text(data.get('company_insider', '')), 11), # Strict 11
             
             # Scripts
-            ('podcast_script', self.parse_markdown_to_text(data.get('podcast_script', '')), None),
-            ('video_script', self.parse_markdown_to_text(data.get('video_script', '')), None),
+            ('podcast_script', self.parse_markdown_to_text(data.get('podcast_script', '')), 11), # Strict 11
+            ('video_script', self.parse_markdown_to_text(data.get('video_script', '')), 11), # Strict 11
             
             # Note: We do clear image placeholders here because we are using fixed positioning for them now.
             ('prize_chart', ' ', None),
@@ -927,14 +959,23 @@ class PPTGenerator:
                             pass
                         text_mappings.append((key, val, 12)) # Font size 12 for "small placeholders"
 
-        for placeholder, value, fixed_font_size in text_mappings:
+        for item in text_mappings:
+            placeholder = item[0]
+            value = item[1]
+            fixed_font_size = item[2]
+            formatting = item[3] if len(item) > 3 else {}
+            
             if value:
                 if fixed_font_size:
                     font_size = fixed_font_size
                 else:
                     font_size = self.calculate_font_size(value)
                 
-                count = self.find_and_replace_placeholder(placeholder, value, font_size)
+                bold = formatting.get('bold', False)
+                align = formatting.get('align', None)
+                color = formatting.get('color', None)
+                
+                count = self.find_and_replace_placeholder(placeholder, value, font_size, bold, align, color)
                 results[placeholder] = count > 0
                 char_info = f"{len(value)} chars, {font_size}pt"
                 status = f"[OK] Replaced ({char_info})" if count > 0 else "[MISSING] Placeholder not found"
