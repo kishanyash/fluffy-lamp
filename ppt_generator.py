@@ -96,10 +96,12 @@ class PPTGenerator:
         text = re.sub(r'^#{1,6}\s*(.+)$', r'\1', text, flags=re.MULTILINE)
 
         # Convert bold/italic markers
-        text = re.sub(r'\*\*\*(.+?)\*\*\*', r'\1', text)  # Bold italic
-        text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)      # Bold
-        text = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'\1', text)  # Italic
-        text = re.sub(r'__(.+?)__', r'\1', text)          # Bold alt
+        # We now PRESERVE bold markers (**) so they can be parsed by replace_shape_text for rich formatting
+        # text = re.sub(r'\*\*\*(.+?)\*\*\*', r'\1', text)  # Bold italic
+        # text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)      # Bold
+        
+        text = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'\1', text)  # Italic (strip simple italic for now)
+        text = re.sub(r'__(.+?)__', r'\1', text)          # Bold alt (strip)
         text = re.sub(r'(?<!_)_(?!_)(.+?)(?<!_)_(?!_)', r'\1', text)  # Italic alt
 
         # Remove link formatting but keep text
@@ -190,18 +192,41 @@ class PPTGenerator:
         # Clean text
         clean_text = new_text.strip()
         
-        # Add text run
-        run = p.add_run()
-        run.text = clean_text
+        # Add text runs processing Markdown bold logic
+        # Split key text by **...** to identify bold sections
+        parts = re.split(r'(\*\*.*?\*\*)', clean_text)
         
-        # Set font properties - let auto-fit handle size usually, but set a max starting point
-        run.font.size = Pt(float(font_size)) 
-        run.font.name = "Calibri"
-        if bold:
-            run.font.bold = True
-        
-        if color:
-            run.font.color.rgb = RGBColor(*color)
+        for part in parts:
+            if not part:
+                continue
+                
+            run = p.add_run()
+            
+            # Check if this segment is wrapped in **
+            is_marked_bold = part.startswith('**') and part.endswith('**') and len(part) > 4
+            
+            # Strip markers if present
+            run_text = part[2:-2] if is_marked_bold else part
+            run.text = run_text
+            
+            # Set font properties - let auto-fit handle size usually, but set a max starting point
+            run.font.size = Pt(float(font_size)) 
+            run.font.name = "Calibri"
+            
+            # Handle Bold logic
+            # 1. If global 'bold' is True, everything is forced bold.
+            # 2. If 'bold' is False, we respect the markdown markers AND explicitly un-bold non-marked text
+            #    to prevent inheriting "Bold" styles from the master template (fixing "everything is bold" issue).
+            if bold:
+                run.font.bold = True
+            else:
+                if is_marked_bold:
+                    run.font.bold = True
+                else:
+                    run.font.bold = False # Explicitly turn off bold for normal text
+            
+            if color:
+                run.font.color.rgb = RGBColor(*color)
             
         # Set alignment
         if align:
@@ -732,7 +757,7 @@ class PPTGenerator:
             ebitda_24 = data.get('ebitda_fy24')
             ebitda_25 = data.get('ebitda_fy25')
             ebitda_26 = data.get('ebitda_fy26')
-            ebitda_27 = data.get('ebitda_fy27')
+            ebitda_27 = data.get('ebitda_fy27') 
             ebitda_28 = data.get('ebitda_fy28')
 
             pat_24 = data.get('pat_fy24')

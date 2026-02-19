@@ -36,6 +36,13 @@ INSERT INTO public.research_reports (
     cs_key_risks,
     cs_marketing_positioning,
     cs_value_and_recommendation,
+    company_background_h,
+    business_model_h,
+    management_analysis_h,
+    industry_overview_h,
+    industry_tailwinds_h,
+    demand_drivers_h,
+    industry_risks_h,
     is_published,
     published_at
 ) VALUES 
@@ -73,6 +80,13 @@ INSERT INTO public.research_reports (
     'Oil price volatility remains a key risk.',
     'Dominant player in digital and retail ecosystems.',
     'Buy rating with target of 3200.',
+    'About Reliance',
+    'Our Business Model',
+    'Leadership Analysis',
+    'Industry Outlook',
+    'Tailwind Factors',
+    'Demand Drivers',
+    'Risk Factors',
     true,
     NOW()
 ),
@@ -110,6 +124,13 @@ INSERT INTO public.research_reports (
     'US macro headwinds.',
     'Preferred partner for large transformational deals.',
     'Neutral stance due to valuations.',
+    'About TCS',
+    'TCS Business Model',
+    'TCS Leadership',
+    'Global IT Industry',
+    'IT Sector Tailwinds',
+    'Tech Demand Drivers',
+    'Key Risks',
     false,
     NULL
 );
