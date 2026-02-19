@@ -910,20 +910,50 @@ class PPTGenerator:
             ('recommendation', rating, 14),
             ('today_date', data.get('today_date', datetime.now().strftime('%Y-%m-%d')), 14),
             ('company_background', self.parse_markdown_to_text(data.get('company_background', '')), 11), # Strict 11
+            ('Company_Background_h', "Company Background", 20, {'bold': True}),
+
             ('business_model', self.parse_markdown_to_text(data.get('business_model', '')), 11), # Strict 11
+            ('Business_Model_Explanation_h', "Business Model", 20, {'bold': True}),
+
             ('management_analysis', self.parse_markdown_to_text(data.get('management_analysis', '')), 11), # Strict 11
+            ('Management_Analysis_h', "Management Analysis", 20, {'bold': True}),
+
             ('industry_overview', self.parse_markdown_to_text(data.get('industry_overview', '')), 11), # Strict 11
+            ('Industry_Overview_h', "Industry Overview", 20, {'bold': True}),
+
             ('industry_tailwinds', self.parse_markdown_to_text(data.get('industry_tailwinds', data.get('key_industry', ''))), 11), # Strict 11
+            ('Key_Industry_Tailwinds_h', "Key Industry Tailwinds", 20, {'bold': True}),
+
             ('demand_drivers', self.parse_markdown_to_text(data.get('demand_drivers', '')), 11), # Strict 11
+            ('Demand_drivers_h', "Demand Drivers", 20, {'bold': True}),
+
             ('industry_risk', self.parse_markdown_to_text(data.get('industry_risks', data.get('industry_risk', ''))), 11), # Strict 11
+            ('Industry_Risks_h', "Industry Risks", 20, {'bold': True}),
             
             # --- NEW FIELDS ---
             ('market_positioning', self.parse_markdown_to_text(data.get('market_positioning', '')), 11), # Strict 11
+            # Schema: cs_marketing_positioning -> Template: cs_market_positioning
+            ('cs_market_positioning', self.parse_markdown_to_text(data.get('cs_marketing_positioning', data.get('market_positioning', ''))), 10),
+
             ('financial_performance', financial_text_summary, 11), # Strict 11
-            ('grow_outlook', self.parse_markdown_to_text(data.get('growth_outlook', '')), 11), # Strict 11 Mapped from 'growth_outlook' data to 'grow_outlook' placeholder
+            # Schema: cs_financial_performance -> Template: cs_financial_performance
+            ('cs_financial_performance', self.parse_markdown_to_text(data.get('cs_financial_performance', financial_text_summary)), 10),
+
+            ('grow_outlook', self.parse_markdown_to_text(data.get('growth_outlook', '')), 11), # Strict 11
+            # Schema: cs_grow_outlook -> Template: cs_grow_outlook
+            ('cs_grow_outlook', self.parse_markdown_to_text(data.get('cs_grow_outlook', data.get('growth_outlook', ''))), 10),
+
             ('valuation_recommendation', self.parse_markdown_to_text(data.get('valuation_recommendation', '')), 11), # Strict 11
+            # Schema: cs_value_and_recommendation -> Template: cs_valuation_recommendation
+            ('cs_valuation_recommendation', self.parse_markdown_to_text(data.get('cs_value_and_recommendation', data.get('valuation_recommendation', ''))), 10),
+
             ('key_risks', self.parse_markdown_to_text(data.get('key_risks', '')), 11), # Strict 11
+            # Schema: cs_key_risks -> Template: cs_key_risks
+            ('cs_key_risks', self.parse_markdown_to_text(data.get('cs_key_risks', data.get('key_risks', ''))), 10),
+
             ('company_insider', self.parse_markdown_to_text(data.get('company_insider', '')), 11), # Strict 11
+            # Schema: cs_company_insider -> Template: cs_company_insider (if exists)
+            ('cs_company_insider', self.parse_markdown_to_text(data.get('cs_company_insider', data.get('company_insider', ''))), 10),
             
             # Scripts
             ('podcast_script', self.parse_markdown_to_text(data.get('podcast_script', '')), 11), # Strict 11
@@ -1013,29 +1043,29 @@ class PPTGenerator:
                 results[name] = False
                 print(f"  {name}: [MISSING] No URL provided")
 
-        # 2. Fixed Position Replacement (Slide 12 / others)
+        # 2. Fixed Position Replacement
         fixed_images = {
             'chart_custom': { 
                 'url': data.get('chart_custom'), 
-                'slide': 11, # Slide 12
+                'slide': 10, # Slide 11 (Index 10)
                 'pos': {'left': 0.5, 'top': 0.75, 'width': 9.0, 'height': 4.5} 
             },
-            'price_chart_slide3': { 
+            'price_chart_slide2': { 
                 'url': data.get('price_chart'), 
-                'slide': 2, # Slide 3
+                'slide': 1, # Slide 2 (Index 1)
                 # User provided Size (cm->inch): W=12.27->4.83, H=5.08->2.0
-                # Position estimated (Top Right) - Moved UP to 0.75 to avoid overlap with table at 2.81
+                # Position estimated (Top Right)
                 'pos': {'left': 5.0, 'top': 0.75, 'width': 4.83, 'height': 2.0} 
             },
-            'financial_table_slide3': {
+            'financial_table_slide2': {
                 'url': data.get('financial_table'),
-                'slide': 2, # Slide 3
+                'slide': 1, # Slide 2 (Index 1)
                 # User requested Width 12cm -> 4.72"
                 'pos': {'left': 5.07, 'top': 2.81, 'width': 4.72, 'height': 2.06}
             },
-            'summary_table_slide11': { 
+            'summary_table_slide10': { 
                 'url': data.get('summary_table'), 
-                'slide': 10, # Slide 11
+                'slide': 9, # Slide 10 (Index 9)
                 # User provided crop pos (cm->inch, calculated):
                 # Left=1.52cm -> 0.60"
                 # Top=1.73cm -> 0.68"
