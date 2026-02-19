@@ -910,25 +910,27 @@ class PPTGenerator:
             ('recommendation', rating, 14),
             ('today_date', data.get('today_date', datetime.now().strftime('%Y-%m-%d')), 14),
             ('company_background', self.parse_markdown_to_text(data.get('company_background', '')), 11), # Strict 11
-            ('Company_Background_h', "Company Background", 20, {'bold': True}),
+            ('Company_Background_h', data.get('company_background_h', "Company Background"), 20, {'bold': True}),
 
             ('business_model', self.parse_markdown_to_text(data.get('business_model', '')), 11), # Strict 11
-            ('Business_Model_Explanation_h', "Business Model", 20, {'bold': True}),
+            ('Business_Model_Explanation_h', data.get('business_model_h', "Business Model"), 20, {'bold': True}),
 
             ('management_analysis', self.parse_markdown_to_text(data.get('management_analysis', '')), 11), # Strict 11
-            ('Management_Analysis_h', "Management Analysis", 20, {'bold': True}),
+            ('Management_Analysis_h', data.get('management_analysis_h', "Management Analysis"), 20, {'bold': True}),
 
             ('industry_overview', self.parse_markdown_to_text(data.get('industry_overview', '')), 11), # Strict 11
-            ('Industry_Overview_h', "Industry Overview", 20, {'bold': True}),
+            ('Industry_Overview_h', data.get('industry_overview_h', "Industry Overview"), 20, {'bold': True}),
 
             ('industry_tailwinds', self.parse_markdown_to_text(data.get('industry_tailwinds', data.get('key_industry', ''))), 11), # Strict 11
-            ('Key_Industry_Tailwinds_h', "Key Industry Tailwinds", 20, {'bold': True}),
+            # Schema: industry_tailwinds_h
+            ('Key_Industry_Tailwinds_h', data.get('industry_tailwinds_h', "Key Industry Tailwinds"), 20, {'bold': True}),
 
             ('demand_drivers', self.parse_markdown_to_text(data.get('demand_drivers', '')), 11), # Strict 11
-            ('Demand_drivers_h', "Demand Drivers", 20, {'bold': True}),
+            ('Demand_drivers_h', data.get('demand_drivers_h', "Demand Drivers"), 20, {'bold': True}),
 
             ('industry_risk', self.parse_markdown_to_text(data.get('industry_risks', data.get('industry_risk', ''))), 11), # Strict 11
-            ('Industry_Risks_h', "Industry Risks", 20, {'bold': True}),
+            # Schema: industry_risks_h
+            ('Industry_Risks_h', data.get('industry_risks_h', "Industry Risks"), 20, {'bold': True}),
             
             # --- NEW FIELDS ---
             ('market_positioning', self.parse_markdown_to_text(data.get('market_positioning', '')), 11), # Strict 11
