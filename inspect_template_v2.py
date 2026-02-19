@@ -50,6 +50,10 @@ def inspect():
                 f.write("\n")
 
             f.write("\n=== SUMMARY OF PLACEHOLDERS FOUND ===\n")
+            f.write("Legend:\n")
+            f.write("  *_h   : Heading Placeholder (Dynamic Title)\n")
+            f.write("  cs_*  : Subtitle / Critical Summary Placeholder\n\n")
+
             for p in sorted(all_placeholders):
                 f.write(f"- {p}\n")
 

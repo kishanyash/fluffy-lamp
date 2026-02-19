@@ -1,5 +1,5 @@
 Template Analysis for: master_template.pptx
-Total Slides: 13
+Total Slides: 12
 
 --- Slide 1 ---
   TEXT: {{company_name}}
@@ -7,68 +7,82 @@ Total Slides: 13
 Date: {{today_date}}
 
 --- Slide 2 ---
-  TEXT: - Market Positioning: {{market_positioning}}
-- Financial Performance:.{{financial_performance}}
-- Growth & Outlook: {{grow_outlook}}
-- Valuation & Recommendation: {{valuation_recommendation}}
-- Key Risks: {{key_risks}}
+  TEXT: - Market Positioning: {{cs_market_positioning}}
+- Financial Performance:.{{cs_financial_performance}}
+- Growth & Outlook: {{cs_grow_outlook}}
+- Valuation & Recommendation: {{cs_valuation_recommendation}}
+- Key Risks: {{cs_key_risks}}
+  TEXT: {{financial_table}}
+  TEXT: {{prize_chart}}
 
 --- Slide 3 ---
-  TEXT: {{company_insider}}
-  TEXT: {{prize_chart}}
-  TEXT: {{financial_table}}
-
---- Slide 4 ---
+  TEXT: {{Company_Background_h}}
   TEXT: {{company_background}}
 
---- Slide 5 ---
+--- Slide 4 ---
+  TEXT: {{Business_Model_Explanation_h}}
   TEXT: {{business_model}}
 
---- Slide 6 ---
+--- Slide 5 ---
+  TEXT: {{Management_Analysis_h}}
   TEXT: {{management_analysis}}
 
---- Slide 7 ---
+--- Slide 6 ---
+  TEXT: {{Industry_Overview_h}}
   TEXT: {{industry_overview}}
 
---- Slide 8 ---
+--- Slide 7 ---
+  TEXT: {{Key_Industry_Tailwinds_h}}
   TEXT: {{industry_tailwinds}}
 
---- Slide 9 ---
+--- Slide 8 ---
+  TEXT: {{Demand_drivers_h}}
   TEXT: {{demand_drivers}}
 
---- Slide 10 ---
+--- Slide 9 ---
+  TEXT: {{Industry_Risks_h}}
   TEXT: {{industry_risk}}
 
---- Slide 11 ---
+--- Slide 10 ---
   TEXT: {{summary_table}}
 
---- Slide 12 ---
+--- Slide 11 ---
   TEXT: {{chart_custom}}
 
---- Slide 13 ---
+--- Slide 12 ---
 (No placeholders found)
 
 
 === SUMMARY OF PLACEHOLDERS FOUND ===
+Legend:
+  *_h   : Heading Placeholder (Dynamic Title)
+  cs_*  : Subtitle / Critical Summary Placeholder
+
+- Business_Model_Explanation_h
+- Company_Background_h
+- Demand_drivers_h
+- Industry_Overview_h
+- Industry_Risks_h
+- Key_Industry_Tailwinds_h
+- Management_Analysis_h
 - bom_code
 - business_model
 - chart_custom
 - company_background
-- company_insider
 - company_name
+- cs_financial_performance
+- cs_grow_outlook
+- cs_key_risks
+- cs_market_positioning
+- cs_valuation_recommendation
 - demand_drivers
-- financial_performance
 - financial_table
-- grow_outlook
 - industry_overview
 - industry_risk
 - industry_tailwinds
-- key_risks
 - management_analysis
-- market_positioning
 - nse_symbol
 - prize_chart
 - recommendation
 - summary_table
 - today_date
-- valuation_recommendation

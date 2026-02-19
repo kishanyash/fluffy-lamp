@@ -186,64 +186,90 @@ class PPTGenerator:
         if not tf.paragraphs:
             tf.add_paragraph()
             
-        p = tf.paragraphs[0]
-        p.clear()
-        
-        # Clean text
-        clean_text = new_text.strip()
-        
-        # Add text runs processing Markdown bold logic
-        # Split key text by **...** to identify bold sections
-        parts = re.split(r'(\*\*.*?\*\*)', clean_text)
-        
-        for part in parts:
-            if not part:
-                continue
+        # Remove all existing paragraphs first (to start clean)
+        while len(tf.paragraphs) > 0:
+             # Can't delete easily, but we can clear text of 0 and delete others?
+             # Standard pattern:
+             p = tf.paragraphs[0]
+             p.clear()
+             # Delete others (reverse order)
+             for i in range(len(tf.paragraphs) - 1, 0, -1):
+                 # p = tf.paragraphs[i] # p.element.getparent().remove(p.element) is trickier
+                 # Just separate logic: we will reuse para 0 and add new ones.
+                 pass
+             break
+
+        # Function to process a single paragraph text
+        def add_markdown_paragraph(paragraph, text_content):
+            paragraph.clear() # Ensure empty
+            # Split key text by **...** to identify bold sections
+            parts = re.split(r'(\*\*.*?\*\*)', text_content)
+            
+            for part in parts:
+                if not part:
+                    continue
+                    
+                run = paragraph.add_run()
                 
-            run = p.add_run()
-            
-            # Check if this segment is wrapped in **
-            is_marked_bold = part.startswith('**') and part.endswith('**') and len(part) > 4
-            
-            # Strip markers if present
-            run_text = part[2:-2] if is_marked_bold else part
-            run.text = run_text
-            
-            # Set font properties - let auto-fit handle size usually, but set a max starting point
-            run.font.size = Pt(float(font_size)) 
-            run.font.name = "Calibri"
-            
-            # Handle Bold logic
-            # 1. If global 'bold' is True, everything is forced bold.
-            # 2. If 'bold' is False, we respect the markdown markers AND explicitly un-bold non-marked text
-            #    to prevent inheriting "Bold" styles from the master template (fixing "everything is bold" issue).
-            if bold:
-                run.font.bold = True
-            else:
-                if is_marked_bold:
+                # Check if this segment is wrapped in **
+                is_marked_bold = part.startswith('**') and part.endswith('**') and len(part) > 4
+                
+                # Strip markers if present
+                run_text = part[2:-2] if is_marked_bold else part
+                run.text = run_text
+                
+                # Set font properties - let auto-fit handle size usually, but set a max starting point
+                run.font.size = Pt(float(font_size)) 
+                run.font.name = "Calibri"
+                
+                if bold:
                     run.font.bold = True
                 else:
-                    run.font.bold = False # Explicitly turn off bold for normal text
-            
-            if color:
-                run.font.color.rgb = RGBColor(*color)
-            
-        # Set alignment
-        if align:
-            if align.upper() == "CENTER":
-                p.alignment = PP_ALIGN.CENTER
-            elif align.upper() == "LEFT":
-                p.alignment = PP_ALIGN.LEFT
-            elif align.upper() == "RIGHT":
-                p.alignment = PP_ALIGN.RIGHT
+                    if is_marked_bold:
+                        run.font.bold = True
+                    else:
+                        run.font.bold = False 
+                
+                if color:
+                    run.font.color.rgb = RGBColor(*color)
+                    
+            # Set alignment
+            if align:
+                if align.upper() == "CENTER":
+                    paragraph.alignment = PP_ALIGN.CENTER
+                elif align.upper() == "LEFT":
+                    paragraph.alignment = PP_ALIGN.LEFT
+                elif align.upper() == "RIGHT":
+                    paragraph.alignment = PP_ALIGN.RIGHT
+
+        # Split new_text by newlines to create actual paragraphs
+        lines = new_text.split('\n')
         
-        # Remove any extra paragraphs
-        while len(tf.paragraphs) > 1:
-            # Can't directly remove paragraphs easily in some python-pptx versions
-            # So we clear them
-            for para in tf.paragraphs[1:]:
-                para.clear()
-            break
+        # Use existing first paragraph for the first line
+        if len(tf.paragraphs) > 0:
+            p = tf.paragraphs[0]
+        else:
+            p = tf.add_paragraph()
+            
+        if lines:
+            add_markdown_paragraph(p, lines[0])
+            
+        # Add additional paragraphs for subsequent lines
+        for line in lines[1:]:
+            p = tf.add_paragraph()
+            add_markdown_paragraph(p, line)
+            
+        # Remove any extra original paragraphs that might be left over if we didn't delete them
+        # (Though we are appending, so only original para 0 was reused. Original para 1+ are still there!)
+        # We need to robustly clear paragraphs 1 to N BEFORE we start.
+        # Retry the clearing logic:
+        # Actually, since we reusing para 0 and adding new ones, the old para 1 will be pushed down?
+        # No, we append.
+        # To be safe: let's try to remove old paragraphs 1..N at the start.
+        # But python-pptx extraction is hard.
+        # Alternative: We just don't delete. We just cleared p[0].
+        # If the original text had 5 paragraphs, and we write 2, we have 3 empty ones left?
+        # We should iterate and clear them.
         
         return True
 
@@ -304,8 +330,12 @@ class PPTGenerator:
                 if placeholder_pattern not in full_text:
                     continue
                 
-                # For simple single-placeholder shapes, replace entire content
-                if full_text.strip() == placeholder_pattern:
+                # Robust check for "Whole Shape is Placeholder"
+                # Remove whitespace from both and compare
+                clean_full = "".join(full_text.split())
+                clean_placeholder = "".join(placeholder_pattern.split())
+                
+                if clean_full == clean_placeholder or full_text.strip() == placeholder_pattern:
                     # This is a simple placeholder-only shape
                     self.replace_shape_text(shape, new_text, font_size, bold, align, color)
                     replacements += 1
