@@ -188,59 +188,11 @@ class PPTGenerator:
             
         # Remove all existing paragraphs first (to start clean)
         while len(tf.paragraphs) > 0:
-             # Can't delete easily, but we can clear text of 0 and delete others?
-             # Standard pattern:
              p = tf.paragraphs[0]
              p.clear()
-             # Delete others (reverse order)
              for i in range(len(tf.paragraphs) - 1, 0, -1):
-                 # p = tf.paragraphs[i] # p.element.getparent().remove(p.element) is trickier
-                 # Just separate logic: we will reuse para 0 and add new ones.
                  pass
              break
-
-        # Function to process a single paragraph text
-        def add_markdown_paragraph(paragraph, text_content):
-            paragraph.clear() # Ensure empty
-            # Split key text by **...** to identify bold sections
-            parts = re.split(r'(\*\*.*?\*\*)', text_content)
-            
-            for part in parts:
-                if not part:
-                    continue
-                    
-                run = paragraph.add_run()
-                
-                # Check if this segment is wrapped in **
-                is_marked_bold = part.startswith('**') and part.endswith('**') and len(part) > 4
-                
-                # Strip markers if present
-                run_text = part[2:-2] if is_marked_bold else part
-                run.text = run_text
-                
-                # Set font properties - let auto-fit handle size usually, but set a max starting point
-                run.font.size = Pt(float(font_size)) 
-                run.font.name = "Calibri"
-                
-                if bold:
-                    run.font.bold = True
-                else:
-                    if is_marked_bold:
-                        run.font.bold = True
-                    else:
-                        run.font.bold = False 
-                
-                if color:
-                    run.font.color.rgb = RGBColor(*color)
-                    
-            # Set alignment
-            if align:
-                if align.upper() == "CENTER":
-                    paragraph.alignment = PP_ALIGN.CENTER
-                elif align.upper() == "LEFT":
-                    paragraph.alignment = PP_ALIGN.LEFT
-                elif align.upper() == "RIGHT":
-                    paragraph.alignment = PP_ALIGN.RIGHT
 
         # Split new_text by newlines to create actual paragraphs
         lines = new_text.split('\n')
@@ -252,26 +204,82 @@ class PPTGenerator:
             p = tf.add_paragraph()
             
         if lines:
-            add_markdown_paragraph(p, lines[0])
+            self.replace_paragraph_with_markdown(p, lines[0], font_size, bold, align, color)
             
         # Add additional paragraphs for subsequent lines
         for line in lines[1:]:
             p = tf.add_paragraph()
-            add_markdown_paragraph(p, line)
-            
-        # Remove any extra original paragraphs that might be left over if we didn't delete them
-        # (Though we are appending, so only original para 0 was reused. Original para 1+ are still there!)
-        # We need to robustly clear paragraphs 1 to N BEFORE we start.
-        # Retry the clearing logic:
-        # Actually, since we reusing para 0 and adding new ones, the old para 1 will be pushed down?
-        # No, we append.
-        # To be safe: let's try to remove old paragraphs 1..N at the start.
-        # But python-pptx extraction is hard.
-        # Alternative: We just don't delete. We just cleared p[0].
-        # If the original text had 5 paragraphs, and we write 2, we have 3 empty ones left?
-        # We should iterate and clear them.
-        
+            self.replace_paragraph_with_markdown(p, line, font_size, bold, align, color)
+
         return True
+
+    def replace_paragraph_with_markdown(self, paragraph, text_content, font_size, bold, align, color=None):
+        """
+        Replaces paragraph text with Markdown-parsed runs.
+        Supports both **bold** and *bold* syntax.
+        Also applies heuristic to bold '- Label:' patterns.
+        """
+        paragraph.clear()
+        
+        # Auto-Bold Heuristic: If line starts with "- Label:", wrap Label in **
+        # Only do this if we are likely in a bullet list context (Slide 2)
+        heuristic_pattern = r'^\s*[-•]?\s*([^*:]+):'
+        match = re.match(heuristic_pattern, text_content)
+        if match:
+            # We found a label. Let's make it bold.
+            label = match.group(1)
+            # Replace only the first occurrence
+            text_content = text_content.replace(f"{label}:", f"**{label}:**", 1)
+
+        # Split key text by **...** OR *...* to identify bold sections
+        # Regex matches **bold** OR *bold*
+        parts = re.split(r'(\*\*.*?\*\*|\*.*?\*)', text_content)
+        
+        for part in parts:
+            if not part:
+                continue
+                
+            run = paragraph.add_run()
+            
+            # Check if this segment is wrapped in ** or *
+            is_double_star = part.startswith('**') and part.endswith('**') and len(part) > 4
+            is_single_star = part.startswith('*') and part.endswith('*') and len(part) > 2
+            is_marked_bold = is_double_star or is_single_star
+            
+            # Strip markers if present
+            if is_double_star:
+                run_text = part[2:-2]
+            elif is_single_star:
+                run_text = part[1:-1]
+            else:
+                run_text = part
+                
+            run.text = run_text
+            
+            # Set font properties
+            if font_size:
+                 run.font.size = Pt(float(font_size)) 
+            run.font.name = "Calibri"
+            
+            if bold:
+                run.font.bold = True
+            else:
+                if is_marked_bold:
+                    run.font.bold = True
+                else:
+                    run.font.bold = False 
+            
+            if color:
+                run.font.color.rgb = RGBColor(*color)
+                
+        # Set alignment
+        if align:
+            if align.upper() == "CENTER":
+                paragraph.alignment = PP_ALIGN.CENTER
+            elif align.upper() == "LEFT":
+                paragraph.alignment = PP_ALIGN.LEFT
+            elif align.upper() == "RIGHT":
+                paragraph.alignment = PP_ALIGN.RIGHT
 
     def replace_placeholder_with_image(self, placeholder_name: str, image_data: BytesIO) -> bool:
         """
@@ -343,11 +351,21 @@ class PPTGenerator:
                     # Multiple placeholders or mixed content - do inline replacement
                     # Note: Align parameter is ignored for inline replacements to avoid breaking layout
                     for para in tf.paragraphs:
-                        if align:
-                             if align.upper() == "CENTER": para.alignment = PP_ALIGN.CENTER
-                             elif align.upper() == "LEFT": para.alignment = PP_ALIGN.LEFT
-                             elif align.upper() == "RIGHT": para.alignment = PP_ALIGN.RIGHT
-
+                        if placeholder_pattern in current_para_text:
+                            # SAFE MODE CHECK:
+                            # Only use the complex Paragraph Rewrite if the NEW TEXT contains Markdown formatting.
+                            # Otherwise, use the simple string replacement (preserves original layout perfectly).
+                            has_markdown = ('**' in new_text) or ('*' in new_text and re.search(r'\*[^*]+\*', new_text))
+                            
+                            if has_markdown:
+                                # Use Markdown Engine (Risk: resets paragraph style, but enables bold)
+                                new_para_text = current_para_text.replace(placeholder_pattern, new_text)
+                                self.replace_paragraph_with_markdown(para, new_para_text, font_size, bold, align, color)
+                                replacements += 1
+                                continue # Done with this paragraph
+                        
+                        # Fallback / Safe Mode: Use standard inline run replacement
+                        # This preserves original font/color/size of the template runs perfectly.
                         for run in para.runs:
                             if placeholder_pattern in run.text:
                                 run.text = run.text.replace(placeholder_pattern, new_text)
