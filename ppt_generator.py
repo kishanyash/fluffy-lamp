@@ -186,7 +186,8 @@ class PPTGenerator:
         from lxml import etree
         txBody = tf._txBody
         nsmap = {'a': 'http://schemas.openxmlformats.org/drawingml/2006/main'}
-        all_paras = txBody.findall('.//a:p', nsmap)
+        all_paras = txBody.findall('a:p', nsmap)  # Direct children only
+        print(f"    [DEBUG replace_shape_text] Existing paragraphs in shape: {len(all_paras)}")
         for p_elem in all_paras[1:]:
             txBody.remove(p_elem)
         if tf.paragraphs:
@@ -194,6 +195,7 @@ class PPTGenerator:
 
         # Split new_text by newlines to create actual paragraphs
         lines = new_text.split('\n')
+        print(f"    [DEBUG replace_shape_text] Text length: {len(new_text)} chars, splitting into {len(lines)} lines, font_size={font_size}")
         
         # Use existing first paragraph for the first line
         if len(tf.paragraphs) > 0:
@@ -208,6 +210,16 @@ class PPTGenerator:
         for line in lines[1:]:
             p = tf.add_paragraph()
             self.replace_paragraph_with_markdown(p, line, font_size, bold, align, color)
+
+        # Verify final paragraph count
+        final_paras = txBody.findall('a:p', nsmap)
+        print(f"    [DEBUG replace_shape_text] Final paragraphs in shape: {len(final_paras)}")
+        # Print shape dimensions
+        try:
+            w_inches = shape.width / 914400
+            h_inches = shape.height / 914400
+            print(f"    [DEBUG replace_shape_text] Shape size: {w_inches:.2f} x {h_inches:.2f} inches")
+        except: pass
 
         return True
 
@@ -341,12 +353,16 @@ class PPTGenerator:
                 clean_full = "".join(full_text.split())
                 clean_placeholder = "".join(placeholder_pattern.split())
                 
+                print(f"    [DEBUG] Placeholder '{placeholder_name}': full_text='{full_text[:80]}...', clean match={clean_full == clean_placeholder}, strip match={full_text.strip() == placeholder_pattern}")
+                
                 if clean_full == clean_placeholder or full_text.strip() == placeholder_pattern:
-                    # This is a simple placeholder-only shape
+                    # This is a simple placeholder-only shape -> use replace_shape_text (multi-paragraph)
+                    print(f"    [DEBUG] -> Taking WHOLE SHAPE branch (replace_shape_text)")
                     self.replace_shape_text(shape, new_text, font_size, bold, align, color)
                     replacements += 1
                 else:
                     # Multiple placeholders or mixed content - do inline replacement
+                    print(f"    [DEBUG] -> Taking INLINE branch (mixed content)")
                     # Note: Align parameter is ignored for inline replacements to avoid breaking layout
                     for para in tf.paragraphs:
                         current_para_text = ''.join(run.text for run in para.runs)
@@ -355,6 +371,7 @@ class PPTGenerator:
                             # Only use the complex Paragraph Rewrite if the NEW TEXT contains Markdown formatting.
                             # Otherwise, use the simple string replacement (preserves original layout perfectly).
                             has_markdown = ('**' in new_text) or ('*' in new_text and re.search(r'\*[^*]+\*', new_text))
+                            print(f"    [DEBUG] -> Inline: has_markdown={has_markdown}, para_text='{current_para_text[:60]}...'")
                             
                             if has_markdown:
                                 # Use Markdown Engine (Risk: resets paragraph style, but enables bold)
@@ -982,27 +999,27 @@ class PPTGenerator:
             ('recommendation', rating, 14),
             ('today_date', data.get('today_date', datetime.now().strftime('%Y-%m-%d')), 14),
             ('company_background', self.parse_markdown_to_text(data.get('company_background', '')), 11),
-            ('Company_Background_h', data.get('company_background_h', "Company Background"), 20, {'bold': True}),
+            ('Company_Background_h', data.get('company_background_h') or "Company Background", 20, {'bold': True}),
 
             ('business_model', self.parse_markdown_to_text(data.get('business_model', '')), 11),
-            ('Business_Model_Explanation_h', data.get('business_model_h', "Business Model"), 20, {'bold': True}),
+            ('Business_Model_Explanation_h', data.get('business_model_h') or "Business Model", 20, {'bold': True}),
 
             ('management_analysis', self.parse_markdown_to_text(data.get('management_analysis', '')), 11),
-            ('Management_Analysis_h', data.get('management_analysis_h', "Management Analysis"), 20, {'bold': True}),
+            ('Management_Analysis_h', data.get('management_analysis_h') or "Management Analysis", 20, {'bold': True}),
 
             ('industry_overview', self.parse_markdown_to_text(data.get('industry_overview', '')), 11),
-            ('Industry_Overview_h', data.get('industry_overview_h', "Industry Overview"), 20, {'bold': True}),
+            ('Industry_Overview_h', data.get('industry_overview_h') or "Industry Overview", 20, {'bold': True}),
 
             ('industry_tailwinds', self.parse_markdown_to_text(data.get('industry_tailwinds', data.get('key_industry', ''))), 11),
             # Schema: industry_tailwinds_h
-            ('Key_Industry_Tailwinds_h', data.get('industry_tailwinds_h', "Key Industry Tailwinds"), 20, {'bold': True}),
+            ('Key_Industry_Tailwinds_h', data.get('industry_tailwinds_h') or "Key Industry Tailwinds", 20, {'bold': True}),
 
             ('demand_drivers', self.parse_markdown_to_text(data.get('demand_drivers', '')), 11),
-            ('Demand_drivers_h', data.get('demand_drivers_h', "Demand Drivers"), 20, {'bold': True}),
+            ('Demand_drivers_h', data.get('demand_drivers_h') or "Demand Drivers", 20, {'bold': True}),
 
             ('industry_risk', self.parse_markdown_to_text(data.get('industry_risks', data.get('industry_risk', ''))), 11),
             # Schema: industry_risks_h
-            ('Industry_Risks_h', data.get('industry_risks_h', "Industry Risks"), 20, {'bold': True}),
+            ('Industry_Risks_h', data.get('industry_risks_h') or "Industry Risks", 20, {'bold': True}),
             
             # --- NEW FIELDS ---
             ('market_positioning', self.parse_markdown_to_text(data.get('market_positioning', '')), 11),
