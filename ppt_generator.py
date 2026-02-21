@@ -198,8 +198,16 @@ class PPTGenerator:
         print(f"    [DEBUG replace_shape_text] Text length: {len(new_text)} chars, splitting into {len(lines)} lines, font_size={font_size}")
         
         # For whole-shape text replacement, default to LEFT alignment for consistency
-        # (prevents first paragraph inheriting template's JUSTIFY while others default to LEFT)
         effective_align = align if align else 'LEFT'
+        
+        # Clean alignment from ALL paragraphs before rebuilding
+        # (only for whole-shape replacement, not inline)
+        from pptx.oxml.ns import qn as qn_shape
+        for existing_para in tf.paragraphs:
+            existing_pPr = existing_para._p.find(qn_shape('a:pPr'))
+            if existing_pPr is not None:
+                if 'algn' in existing_pPr.attrib:
+                    del existing_pPr.attrib['algn']
         
         # Use existing first paragraph for the first line
         if len(tf.paragraphs) > 0:
@@ -235,17 +243,12 @@ class PPTGenerator:
         """
         paragraph.clear()
         
-        # Reset paragraph alignment without removing other properties (bullets, spacing, etc.)
+        # Ensure no bullet formatting from template
         from pptx.oxml.ns import qn
         pPr = paragraph._p.find(qn('a:pPr'))
         if pPr is not None:
-            # Only remove alignment attribute, keep everything else
-            if 'algn' in pPr.attrib:
-                del pPr.attrib['algn']
-            # Ensure no bullet formatting from template
             buNone = pPr.find(qn('a:buNone'))
             if buNone is None:
-                # Remove any existing bullet settings
                 for bu_elem in pPr.findall(qn('a:buChar')):
                     pPr.remove(bu_elem)
                 for bu_elem in pPr.findall(qn('a:buAutoNum')):
@@ -1012,32 +1015,30 @@ class PPTGenerator:
         # Define placeholder mappings with their data sources
         text_mappings = [
             ('company_name', data.get('company_name', ''), 40, {'bold': True, 'align': 'CENTER', 'color': (255, 255, 255)}),  # Large font, Bold, Center, White
-            ('nse_symbol', data.get('nse_symbol', data.get('symbol', '')), 14),
-            ('bom_code', bom_code, 14),
-            ('recommendation', rating, 14),
-            ('today_date', data.get('today_date', datetime.now().strftime('%Y-%m-%d')), 14),
+            ('nse_symbol', data.get('nse_symbol', data.get('symbol', '')), 14, {'align': 'CENTER'}),
+            ('bom_code', bom_code, 14, {'align': 'CENTER'}),
+            ('recommendation', rating, 14, {'align': 'CENTER'}),
+            ('today_date', data.get('today_date', datetime.now().strftime('%Y-%m-%d')), 14, {'align': 'CENTER'}),
             ('company_background', self.parse_markdown_to_text(data.get('company_background', '')), 11),
-            ('Company_Background_h', data.get('company_background_h') or "Company Background", 20, {'bold': True, 'align': 'CENTER'}),
+            ('Company_Background_h', data.get('company_background_h') or "Company Background", 20, {'bold': True, 'align': 'CENTER', 'color': (255, 255, 255)}),
 
             ('business_model', self.parse_markdown_to_text(data.get('business_model', '')), 11),
-            ('Business_Model_Explanation_h', data.get('business_model_h') or "Business Model", 20, {'bold': True, 'align': 'CENTER'}),
+            ('Business_Model_Explanation_h', data.get('business_model_h') or "Business Model", 20, {'bold': True, 'align': 'CENTER', 'color': (255, 255, 255)}),
 
             ('management_analysis', self.parse_markdown_to_text(data.get('management_analysis', '')), 11),
-            ('Management_Analysis_h', data.get('management_analysis_h') or "Management Analysis", 20, {'bold': True, 'align': 'CENTER'}),
+            ('Management_Analysis_h', data.get('management_analysis_h') or "Management Analysis", 20, {'bold': True, 'align': 'CENTER', 'color': (255, 255, 255)}),
 
             ('industry_overview', self.parse_markdown_to_text(data.get('industry_overview', '')), 11),
-            ('Industry_Overview_h', data.get('industry_overview_h') or "Industry Overview", 20, {'bold': True, 'align': 'CENTER'}),
+            ('Industry_Overview_h', data.get('industry_overview_h') or "Industry Overview", 20, {'bold': True, 'align': 'CENTER', 'color': (255, 255, 255)}),
 
             ('industry_tailwinds', self.parse_markdown_to_text(data.get('industry_tailwinds', data.get('key_industry', ''))), 11),
-            # Schema: industry_tailwinds_h
-            ('Key_Industry_Tailwinds_h', data.get('industry_tailwinds_h') or "Key Industry Tailwinds", 20, {'bold': True, 'align': 'CENTER'}),
+            ('Key_Industry_Tailwinds_h', data.get('industry_tailwinds_h') or "Key Industry Tailwinds", 20, {'bold': True, 'align': 'CENTER', 'color': (255, 255, 255)}),
 
             ('demand_drivers', self.parse_markdown_to_text(data.get('demand_drivers', '')), 11),
-            ('Demand_drivers_h', data.get('demand_drivers_h') or "Demand Drivers", 20, {'bold': True, 'align': 'CENTER'}),
+            ('Demand_drivers_h', data.get('demand_drivers_h') or "Demand Drivers", 20, {'bold': True, 'align': 'CENTER', 'color': (255, 255, 255)}),
 
             ('industry_risk', self.parse_markdown_to_text(data.get('industry_risks', data.get('industry_risk', ''))), 11),
-            # Schema: industry_risks_h
-            ('Industry_Risks_h', data.get('industry_risks_h') or "Industry Risks", 20, {'bold': True, 'align': 'CENTER'}),
+            ('Industry_Risks_h', data.get('industry_risks_h') or "Industry Risks", 20, {'bold': True, 'align': 'CENTER', 'color': (255, 255, 255)}),
             
             # --- NEW FIELDS ---
             ('market_positioning', self.parse_markdown_to_text(data.get('market_positioning', '')), 11),
