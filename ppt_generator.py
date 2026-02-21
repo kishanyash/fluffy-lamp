@@ -235,6 +235,12 @@ class PPTGenerator:
         """
         paragraph.clear()
         
+        # Also clear paragraph properties (pPr) to remove template formatting like JUSTIFY alignment
+        from pptx.oxml.ns import qn
+        pPr = paragraph._p.find(qn('a:pPr'))
+        if pPr is not None:
+            paragraph._p.remove(pPr)
+        
         # Auto-Bold Heuristic: If line starts with "- Label:", wrap Label in **
         # Only do this if we are likely in a bullet list context (Slide 2)
         heuristic_pattern = r'^\s*[-•]?\s*([^*:]+):'
