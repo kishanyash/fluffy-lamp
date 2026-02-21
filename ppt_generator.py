@@ -351,6 +351,7 @@ class PPTGenerator:
                     # Multiple placeholders or mixed content - do inline replacement
                     # Note: Align parameter is ignored for inline replacements to avoid breaking layout
                     for para in tf.paragraphs:
+                        current_para_text = ''.join(run.text for run in para.runs)
                         if placeholder_pattern in current_para_text:
                             # SAFE MODE CHECK:
                             # Only use the complex Paragraph Rewrite if the NEW TEXT contains Markdown formatting.
