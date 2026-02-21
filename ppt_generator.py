@@ -1032,6 +1032,9 @@ class PPTGenerator:
             ('today_date', data.get('today_date', datetime.now().strftime('%Y-%m-%d')), 14, {'align': 'CENTER'}),
             ('company_background', self.parse_markdown_to_text(data.get('company_background', '')), 11),
             ('Company_Background_h', data.get('company_background_h') or "Company Background", 20, {'bold': True, 'align': 'CENTER', 'color': (255, 255, 255)}),
+            
+            # Slide 2 dynamic Masterheading
+            ('Masterheading_h', data.get('masterheading_h') or "Company Insider", 20, {'bold': True, 'align': 'CENTER', 'color': (255, 255, 255)}),
 
             ('business_model', self.parse_markdown_to_text(data.get('business_model', '')), 11),
             ('Business_Model_Explanation_h', data.get('business_model_h') or "Business Model", 20, {'bold': True, 'align': 'CENTER', 'color': (255, 255, 255)}),
