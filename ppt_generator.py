@@ -197,6 +197,10 @@ class PPTGenerator:
         lines = new_text.split('\n')
         print(f"    [DEBUG replace_shape_text] Text length: {len(new_text)} chars, splitting into {len(lines)} lines, font_size={font_size}")
         
+        # For whole-shape text replacement, default to LEFT alignment for consistency
+        # (prevents first paragraph inheriting template's JUSTIFY while others default to LEFT)
+        effective_align = align if align else 'LEFT'
+        
         # Use existing first paragraph for the first line
         if len(tf.paragraphs) > 0:
             p = tf.paragraphs[0]
@@ -204,12 +208,12 @@ class PPTGenerator:
             p = tf.add_paragraph()
             
         if lines:
-            self.replace_paragraph_with_markdown(p, lines[0], font_size, bold, align, color)
+            self.replace_paragraph_with_markdown(p, lines[0], font_size, bold, effective_align, color)
             
         # Add additional paragraphs for subsequent lines
         for line in lines[1:]:
             p = tf.add_paragraph()
-            self.replace_paragraph_with_markdown(p, line, font_size, bold, align, color)
+            self.replace_paragraph_with_markdown(p, line, font_size, bold, effective_align, color)
 
         # Verify final paragraph count
         final_paras = txBody.findall('a:p', nsmap)
@@ -282,7 +286,8 @@ class PPTGenerator:
             if color:
                 run.font.color.rgb = RGBColor(*color)
                 
-        # Set alignment - default to LEFT for consistency
+        # Set alignment - only when explicitly specified
+        # (inline replacements should preserve template alignment)
         if align:
             if align.upper() == "CENTER":
                 paragraph.alignment = PP_ALIGN.CENTER
@@ -292,9 +297,6 @@ class PPTGenerator:
                 paragraph.alignment = PP_ALIGN.RIGHT
             elif align.upper() == "JUSTIFY":
                 paragraph.alignment = PP_ALIGN.JUSTIFY
-        else:
-            # Default to LEFT to ensure all paragraphs have consistent alignment
-            paragraph.alignment = PP_ALIGN.LEFT
 
     def replace_placeholder_with_image(self, placeholder_name: str, image_data: BytesIO) -> bool:
         """
