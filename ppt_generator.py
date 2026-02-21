@@ -312,22 +312,23 @@ class PPTGenerator:
                 # Default to black text
                 run.font.color.rgb = RGBColor(0, 0, 0)
                 
-        # Set alignment
+        # Set alignment directly via XML (python-pptx may not write 'l' since LEFT is "default")
         if align:
-            # Force-remove any inherited alignment first at XML level
+            align_map = {
+                'LEFT': 'l',
+                'CENTER': 'ctr',
+                'RIGHT': 'r',
+                'JUSTIFY': 'just',
+            }
+            xml_align = align_map.get(align.upper(), 'l')
+            # Get or create pPr element and set algn attribute directly
             from pptx.oxml.ns import qn as qn_align
             pPr_elem = paragraph._p.find(qn_align('a:pPr'))
-            if pPr_elem is not None and 'algn' in pPr_elem.attrib:
-                del pPr_elem.attrib['algn']
-            # Now set the desired alignment
-            if align.upper() == "CENTER":
-                paragraph.alignment = PP_ALIGN.CENTER
-            elif align.upper() == "LEFT":
-                paragraph.alignment = PP_ALIGN.LEFT
-            elif align.upper() == "RIGHT":
-                paragraph.alignment = PP_ALIGN.RIGHT
-            elif align.upper() == "JUSTIFY":
-                paragraph.alignment = PP_ALIGN.JUSTIFY
+            if pPr_elem is None:
+                from lxml import etree
+                pPr_elem = etree.SubElement(paragraph._p, qn_align('a:pPr'))
+                paragraph._p.insert(0, pPr_elem)  # pPr must be first child
+            pPr_elem.set('algn', xml_align)
 
     def replace_placeholder_with_image(self, placeholder_name: str, image_data: BytesIO) -> bool:
         """
