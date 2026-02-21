@@ -235,11 +235,23 @@ class PPTGenerator:
         """
         paragraph.clear()
         
-        # Also clear paragraph properties (pPr) to remove template formatting like JUSTIFY alignment
+        # Reset paragraph alignment without removing other properties (bullets, spacing, etc.)
         from pptx.oxml.ns import qn
         pPr = paragraph._p.find(qn('a:pPr'))
         if pPr is not None:
-            paragraph._p.remove(pPr)
+            # Only remove alignment attribute, keep everything else
+            if 'algn' in pPr.attrib:
+                del pPr.attrib['algn']
+            # Ensure no bullet formatting from template
+            buNone = pPr.find(qn('a:buNone'))
+            if buNone is None:
+                # Remove any existing bullet settings
+                for bu_elem in pPr.findall(qn('a:buChar')):
+                    pPr.remove(bu_elem)
+                for bu_elem in pPr.findall(qn('a:buAutoNum')):
+                    pPr.remove(bu_elem)
+                from lxml import etree
+                etree.SubElement(pPr, qn('a:buNone'))
         
         # Auto-Bold Heuristic: If line starts with "- Label:", wrap Label in **
         # Only do this if we are likely in a bullet list context (Slide 2)
@@ -291,6 +303,9 @@ class PPTGenerator:
             
             if color:
                 run.font.color.rgb = RGBColor(*color)
+            else:
+                # Default to black text
+                run.font.color.rgb = RGBColor(0, 0, 0)
                 
         # Set alignment - only when explicitly specified
         # (inline replacements should preserve template alignment)
