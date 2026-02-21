@@ -282,7 +282,7 @@ class PPTGenerator:
             if color:
                 run.font.color.rgb = RGBColor(*color)
                 
-        # Set alignment
+        # Set alignment - default to LEFT for consistency
         if align:
             if align.upper() == "CENTER":
                 paragraph.alignment = PP_ALIGN.CENTER
@@ -290,6 +290,11 @@ class PPTGenerator:
                 paragraph.alignment = PP_ALIGN.LEFT
             elif align.upper() == "RIGHT":
                 paragraph.alignment = PP_ALIGN.RIGHT
+            elif align.upper() == "JUSTIFY":
+                paragraph.alignment = PP_ALIGN.JUSTIFY
+        else:
+            # Default to LEFT to ensure all paragraphs have consistent alignment
+            paragraph.alignment = PP_ALIGN.LEFT
 
     def replace_placeholder_with_image(self, placeholder_name: str, image_data: BytesIO) -> bool:
         """
