@@ -609,72 +609,98 @@ class PPTGenerator:
 
     def fetch_bom_code(self, symbol: str, company_name: str) -> str:
         """
-        Attempt to fetch BOM code from Yahoo Finance search API.
-        Searches for the symbol or company name and looks for a result ending in '.BO'.
-        Falls back to a known list of common Indian stocks.
+        Attempt to fetch BSE numeric code using multiple sources:
+        1. Hardcoded fallback list
+        2. BSE India search API
+        3. Screener.in
+        4. Yahoo Finance (.BO symbol)
         """
         # Fallback list of common Indian stocks (NSE symbol -> BSE code)
         KNOWN_BSE_CODES = {
-            'WIPRO': '507685',
-            'TCS': '532540',
-            'INFY': '500209',
-            'RELIANCE': '500325',
-            'HDFCBANK': '500180',
-            'ICICIBANK': '532174',
-            'SBIN': '500112',
-            'BHARTIARTL': '532454',
-            'ITC': '500875',
-            'HINDUNILVR': '500696',
-            'KOTAKBANK': '500247',
-            'LT': '500510',
-            'AXISBANK': '532215',
-            'ASIANPAINT': '500820',
-            'MARUTI': '532500',
-            'TATAMOTORS': '500570',
-            'SUNPHARMA': '524715',
-            'TITAN': '500114',
-            'BAJFINANCE': '500034',
-            'HCLTECH': '532281',
+            'WIPRO': '507685', 'TCS': '532540', 'INFY': '500209',
+            'RELIANCE': '500325', 'HDFCBANK': '500180', 'ICICIBANK': '532174',
+            'SBIN': '500112', 'BHARTIARTL': '532454', 'ITC': '500875',
+            'HINDUNILVR': '500696', 'KOTAKBANK': '500247', 'LT': '500510',
+            'AXISBANK': '532215', 'ASIANPAINT': '500820', 'MARUTI': '532500',
+            'TATAMOTORS': '500570', 'SUNPHARMA': '524715', 'TITAN': '500114',
+            'BAJFINANCE': '500034', 'HCLTECH': '532281', 'BAJAJ-AUTO': '532977',
+            'SWIGGY': '543842', 'ZOMATO': '543320',
         }
         
-        # Check fallback list first
-        symbol_upper = symbol.upper() if symbol else ''
+        symbol_upper = symbol.upper().strip() if symbol else ''
+        
+        # 1. Check hardcoded list
         if symbol_upper in KNOWN_BSE_CODES:
             print(f"    -> Found BSE code in fallback list: {KNOWN_BSE_CODES[symbol_upper]}")
             return KNOWN_BSE_CODES[symbol_upper]
         
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+        
+        # 2. Try BSE India search API
         try:
-            # Try searching by symbol first, then company name
+            for query in [symbol, company_name]:
+                if not query:
+                    continue
+                print(f"    -> Searching BSE India for: {query}")
+                bse_url = f"https://api.bseindia.com/BseIndiaAPI/api/ComHeadernewCompSearch/w?flag=suggestflag&scompany={query}"
+                response = requests.get(bse_url, headers=headers, timeout=10)
+                if response.status_code == 200:
+                    results = response.json()
+                    if results and len(results) > 0:
+                        # BSE API returns list of dicts with 'scrip_cd' (BSE code)
+                        for item in results:
+                            scrip_cd = str(item.get('scrip_cd', item.get('SCRIP_CD', '')))
+                            if scrip_cd and scrip_cd.isdigit():
+                                print(f"    -> Found BSE code via BSE India: {scrip_cd}")
+                                return scrip_cd
+        except Exception as e:
+            print(f"    -> BSE India search failed: {e}")
+        
+        # 3. Try Screener.in
+        try:
+            if symbol:
+                print(f"    -> Searching Screener.in for: {symbol}")
+                screener_url = f"https://www.screener.in/api/company/search/?q={symbol}"
+                response = requests.get(screener_url, headers=headers, timeout=10)
+                if response.status_code == 200:
+                    results = response.json()
+                    for item in results:
+                        url = item.get('url', '')
+                        # Screener URL format: /company/BSE_CODE/company-name/
+                        # or /company/NSE_SYMBOL/
+                        bse_id = str(item.get('bse_code', ''))
+                        if bse_id and bse_id.isdigit():
+                            print(f"    -> Found BSE code via Screener: {bse_id}")
+                            return bse_id
+        except Exception as e:
+            print(f"    -> Screener search failed: {e}")
+        
+        # 4. Try Yahoo Finance (last resort)
+        try:
             queries = [q for q in [symbol, company_name] if q]
-            
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
-
             for query in queries:
                 print(f"    -> Searching Yahoo Finance for: {query}")
                 url = f"https://query2.finance.yahoo.com/v1/finance/search?q={query}&quotesCount=10&newsCount=0"
                 response = requests.get(url, headers=headers, timeout=10)
-                
-                print(f"    -> Response status: {response.status_code}")
-                
                 if response.status_code == 200:
                     data = response.json()
                     quotes = data.get('quotes', [])
-                    print(f"    -> Found {len(quotes)} quotes")
-                    
                     for quote in quotes:
                         symbol_ticker = quote.get('symbol', '')
-                        # Look for BSE symbols (usually end with .BO)
                         if symbol_ticker.endswith('.BO'):
                             bse_code = symbol_ticker.split('.')[0]
-                            print(f"    -> Found BSE symbol: {symbol_ticker} -> {bse_code}")
-                            return bse_code
-                            
+                            # Only return if it's numeric (actual BSE code)
+                            if bse_code.isdigit():
+                                print(f"    -> Found numeric BSE code via Yahoo: {bse_code}")
+                                return bse_code
+                            else:
+                                print(f"    -> Yahoo returned non-numeric BSE ticker: {bse_code} (skipping)")
         except Exception as e:
-            print(f"    Warning: Could not fetch BOM code: {e}")
-            
-        print("    -> No BSE code found")
+            print(f"    -> Yahoo Finance search failed: {e}")
+        
+        print("    -> No numeric BSE code found from any source")
         return ' '
 
     def populate_from_data(self, data: Dict[str, Any]) -> Dict[str, bool]:
@@ -970,27 +996,27 @@ class PPTGenerator:
             ('recommendation', rating, 14),
             ('today_date', data.get('today_date', datetime.now().strftime('%Y-%m-%d')), 14),
             ('company_background', self.parse_markdown_to_text(data.get('company_background', '')), 11),
-            ('Company_Background_h', data.get('company_background_h') or "Company Background", 20, {'bold': True}),
+            ('Company_Background_h', data.get('company_background_h') or "Company Background", 20, {'bold': True, 'align': 'CENTER'}),
 
             ('business_model', self.parse_markdown_to_text(data.get('business_model', '')), 11),
-            ('Business_Model_Explanation_h', data.get('business_model_h') or "Business Model", 20, {'bold': True}),
+            ('Business_Model_Explanation_h', data.get('business_model_h') or "Business Model", 20, {'bold': True, 'align': 'CENTER'}),
 
             ('management_analysis', self.parse_markdown_to_text(data.get('management_analysis', '')), 11),
-            ('Management_Analysis_h', data.get('management_analysis_h') or "Management Analysis", 20, {'bold': True}),
+            ('Management_Analysis_h', data.get('management_analysis_h') or "Management Analysis", 20, {'bold': True, 'align': 'CENTER'}),
 
             ('industry_overview', self.parse_markdown_to_text(data.get('industry_overview', '')), 11),
-            ('Industry_Overview_h', data.get('industry_overview_h') or "Industry Overview", 20, {'bold': True}),
+            ('Industry_Overview_h', data.get('industry_overview_h') or "Industry Overview", 20, {'bold': True, 'align': 'CENTER'}),
 
             ('industry_tailwinds', self.parse_markdown_to_text(data.get('industry_tailwinds', data.get('key_industry', ''))), 11),
             # Schema: industry_tailwinds_h
-            ('Key_Industry_Tailwinds_h', data.get('industry_tailwinds_h') or "Key Industry Tailwinds", 20, {'bold': True}),
+            ('Key_Industry_Tailwinds_h', data.get('industry_tailwinds_h') or "Key Industry Tailwinds", 20, {'bold': True, 'align': 'CENTER'}),
 
             ('demand_drivers', self.parse_markdown_to_text(data.get('demand_drivers', '')), 11),
-            ('Demand_drivers_h', data.get('demand_drivers_h') or "Demand Drivers", 20, {'bold': True}),
+            ('Demand_drivers_h', data.get('demand_drivers_h') or "Demand Drivers", 20, {'bold': True, 'align': 'CENTER'}),
 
             ('industry_risk', self.parse_markdown_to_text(data.get('industry_risks', data.get('industry_risk', ''))), 11),
             # Schema: industry_risks_h
-            ('Industry_Risks_h', data.get('industry_risks_h') or "Industry Risks", 20, {'bold': True}),
+            ('Industry_Risks_h', data.get('industry_risks_h') or "Industry Risks", 20, {'bold': True, 'align': 'CENTER'}),
             
             # --- NEW FIELDS ---
             ('market_positioning', self.parse_markdown_to_text(data.get('market_positioning', '')), 11),
