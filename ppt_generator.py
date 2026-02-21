@@ -1,6 +1,7 @@
 """
 PPT Generator Script for Research Reports
 ==========================================
+Version: 2.1.0 (2026-02-21) - Fixed current_para_text NameError
 This script automates the generation of PowerPoint presentations
 from Supabase data received via n8n webhook.
 
@@ -170,7 +171,7 @@ class PPTGenerator:
         tf.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE  # Auto-shrink text to fit
         
         # Set margins (Inches)
-        tf.margin_top = Inches(0.25)  # Reduced from 0.5 to move text up
+        tf.margin_top = Inches(0.25)
         tf.margin_left = Inches(0.2)
         tf.margin_right = Inches(0.2)
         tf.margin_bottom = Inches(0.1)
@@ -181,18 +182,15 @@ class PPTGenerator:
         else:
              tf.vertical_anchor = MSO_ANCHOR.TOP
         
-        # Clear existing content and set new text
-        # First paragraph
-        if not tf.paragraphs:
-            tf.add_paragraph()
-            
-        # Remove all existing paragraphs first (to start clean)
-        while len(tf.paragraphs) > 0:
-             p = tf.paragraphs[0]
-             p.clear()
-             for i in range(len(tf.paragraphs) - 1, 0, -1):
-                 pass
-             break
+        # Clear ALL existing paragraphs properly using XML manipulation
+        from lxml import etree
+        txBody = tf._txBody
+        nsmap = {'a': 'http://schemas.openxmlformats.org/drawingml/2006/main'}
+        all_paras = txBody.findall('.//a:p', nsmap)
+        for p_elem in all_paras[1:]:
+            txBody.remove(p_elem)
+        if tf.paragraphs:
+            tf.paragraphs[0].clear()
 
         # Split new_text by newlines to create actual paragraphs
         lines = new_text.split('\n')
@@ -609,7 +607,7 @@ class PPTGenerator:
         text_len = len(text)
         
         if text_len < 500:
-            return 12.0  # Standard body text (Updated from 11.0)
+            return 12.0  # Standard body text
         elif text_len < 1000:
             return 11.5
         elif text_len < 1500:
@@ -617,9 +615,9 @@ class PPTGenerator:
         elif text_len < 2000:
             return 9.0
         elif text_len < 3000:
-            return 8.0 # Let auto-fit shrink further if needed
+            return 8.0
         else:
-            return 7.0 # Set a readable base even for long text
+            return 7.0
 
     def fetch_bom_code(self, symbol: str, company_name: str) -> str:
         """
@@ -983,57 +981,57 @@ class PPTGenerator:
             ('bom_code', bom_code, 14),
             ('recommendation', rating, 14),
             ('today_date', data.get('today_date', datetime.now().strftime('%Y-%m-%d')), 14),
-            ('company_background', self.parse_markdown_to_text(data.get('company_background', '')), 11), # Strict 11
+            ('company_background', self.parse_markdown_to_text(data.get('company_background', '')), 11),
             ('Company_Background_h', data.get('company_background_h', "Company Background"), 20, {'bold': True}),
 
-            ('business_model', self.parse_markdown_to_text(data.get('business_model', '')), 11), # Strict 11
+            ('business_model', self.parse_markdown_to_text(data.get('business_model', '')), 11),
             ('Business_Model_Explanation_h', data.get('business_model_h', "Business Model"), 20, {'bold': True}),
 
-            ('management_analysis', self.parse_markdown_to_text(data.get('management_analysis', '')), 11), # Strict 11
+            ('management_analysis', self.parse_markdown_to_text(data.get('management_analysis', '')), 11),
             ('Management_Analysis_h', data.get('management_analysis_h', "Management Analysis"), 20, {'bold': True}),
 
-            ('industry_overview', self.parse_markdown_to_text(data.get('industry_overview', '')), 11), # Strict 11
+            ('industry_overview', self.parse_markdown_to_text(data.get('industry_overview', '')), 11),
             ('Industry_Overview_h', data.get('industry_overview_h', "Industry Overview"), 20, {'bold': True}),
 
-            ('industry_tailwinds', self.parse_markdown_to_text(data.get('industry_tailwinds', data.get('key_industry', ''))), 11), # Strict 11
+            ('industry_tailwinds', self.parse_markdown_to_text(data.get('industry_tailwinds', data.get('key_industry', ''))), 11),
             # Schema: industry_tailwinds_h
             ('Key_Industry_Tailwinds_h', data.get('industry_tailwinds_h', "Key Industry Tailwinds"), 20, {'bold': True}),
 
-            ('demand_drivers', self.parse_markdown_to_text(data.get('demand_drivers', '')), 11), # Strict 11
+            ('demand_drivers', self.parse_markdown_to_text(data.get('demand_drivers', '')), 11),
             ('Demand_drivers_h', data.get('demand_drivers_h', "Demand Drivers"), 20, {'bold': True}),
 
-            ('industry_risk', self.parse_markdown_to_text(data.get('industry_risks', data.get('industry_risk', ''))), 11), # Strict 11
+            ('industry_risk', self.parse_markdown_to_text(data.get('industry_risks', data.get('industry_risk', ''))), 11),
             # Schema: industry_risks_h
             ('Industry_Risks_h', data.get('industry_risks_h', "Industry Risks"), 20, {'bold': True}),
             
             # --- NEW FIELDS ---
-            ('market_positioning', self.parse_markdown_to_text(data.get('market_positioning', '')), 11), # Strict 11
+            ('market_positioning', self.parse_markdown_to_text(data.get('market_positioning', '')), 11),
             # Schema: cs_marketing_positioning -> Template: cs_market_positioning
             ('cs_market_positioning', self.parse_markdown_to_text(data.get('cs_marketing_positioning', data.get('market_positioning', ''))), 10),
 
-            ('financial_performance', financial_text_summary, 11), # Strict 11
+            ('financial_performance', financial_text_summary, 11),
             # Schema: cs_financial_performance -> Template: cs_financial_performance
             ('cs_financial_performance', self.parse_markdown_to_text(data.get('cs_financial_performance', financial_text_summary)), 10),
 
-            ('grow_outlook', self.parse_markdown_to_text(data.get('growth_outlook', '')), 11), # Strict 11
+            ('grow_outlook', self.parse_markdown_to_text(data.get('growth_outlook', '')), 11),
             # Schema: cs_grow_outlook -> Template: cs_grow_outlook
             ('cs_grow_outlook', self.parse_markdown_to_text(data.get('cs_grow_outlook', data.get('growth_outlook', ''))), 10),
 
-            ('valuation_recommendation', self.parse_markdown_to_text(data.get('valuation_recommendation', '')), 11), # Strict 11
+            ('valuation_recommendation', self.parse_markdown_to_text(data.get('valuation_recommendation', '')), 11),
             # Schema: cs_value_and_recommendation -> Template: cs_valuation_recommendation
             ('cs_valuation_recommendation', self.parse_markdown_to_text(data.get('cs_value_and_recommendation', data.get('valuation_recommendation', ''))), 10),
 
-            ('key_risks', self.parse_markdown_to_text(data.get('key_risks', '')), 11), # Strict 11
+            ('key_risks', self.parse_markdown_to_text(data.get('key_risks', '')), 11),
             # Schema: cs_key_risks -> Template: cs_key_risks
             ('cs_key_risks', self.parse_markdown_to_text(data.get('cs_key_risks', data.get('key_risks', ''))), 10),
 
-            ('company_insider', self.parse_markdown_to_text(data.get('company_insider', '')), 11), # Strict 11
+            ('company_insider', self.parse_markdown_to_text(data.get('company_insider', '')), 11),
             # Schema: cs_company_insider -> Template: cs_company_insider (if exists)
             ('cs_company_insider', self.parse_markdown_to_text(data.get('cs_company_insider', data.get('company_insider', ''))), 10),
             
             # Scripts
-            ('podcast_script', self.parse_markdown_to_text(data.get('podcast_script', '')), 11), # Strict 11
-            ('video_script', self.parse_markdown_to_text(data.get('video_script', '')), 11), # Strict 11
+            ('podcast_script', self.parse_markdown_to_text(data.get('podcast_script', '')), 11),
+            ('video_script', self.parse_markdown_to_text(data.get('video_script', '')), 11),
             
             # Note: We do clear image placeholders here because we are using fixed positioning for them now.
             ('prize_chart', ' ', None),
@@ -1085,7 +1083,7 @@ class PPTGenerator:
                 results[placeholder] = count > 0
                 char_info = f"{len(value)} chars, {font_size}pt"
                 status = f"[OK] Replaced ({char_info})" if count > 0 else "[MISSING] Placeholder not found"
-                # print(f"  {placeholder}: {status}") # Reduce noise
+                print(f"  {placeholder}: {status}")
             else:
                 pass
 
