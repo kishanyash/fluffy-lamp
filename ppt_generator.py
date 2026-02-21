@@ -263,8 +263,10 @@ class PPTGenerator:
         if match:
             # We found a label. Let's make it bold.
             label = match.group(1)
-            # Replace only the first occurrence
-            text_content = text_content.replace(f"{label}:", f"**{label}:**", 1)
+            # Skip if it's the Date or the NSE/BOM/Rating line
+            if label.strip() not in ["Date", "NSE", "BOM", "Rating"] and "|" not in text_content:
+                # Replace only the first occurrence
+                text_content = text_content.replace(f"{label}:", f"**{label}:**", 1)
 
         # Split key text by **...** OR *...* to identify bold sections
         # Regex matches **bold** OR *bold*
@@ -310,9 +312,14 @@ class PPTGenerator:
                 # Default to black text
                 run.font.color.rgb = RGBColor(0, 0, 0)
                 
-        # Set alignment - only when explicitly specified
-        # (inline replacements should preserve template alignment)
+        # Set alignment
         if align:
+            # Force-remove any inherited alignment first at XML level
+            from pptx.oxml.ns import qn as qn_align
+            pPr_elem = paragraph._p.find(qn_align('a:pPr'))
+            if pPr_elem is not None and 'algn' in pPr_elem.attrib:
+                del pPr_elem.attrib['algn']
+            # Now set the desired alignment
             if align.upper() == "CENTER":
                 paragraph.alignment = PP_ALIGN.CENTER
             elif align.upper() == "LEFT":
