@@ -192,22 +192,19 @@ class PPTGenerator:
             txBody.remove(p_elem)
         if tf.paragraphs:
             tf.paragraphs[0].clear()
-
+            # Remove ALL paragraph properties (indentation, margins, alignment, bullets) from first paragraph
+            # so it starts fresh like newly-added paragraphs
+            from pptx.oxml.ns import qn as qn_shape
+            first_pPr = tf.paragraphs[0]._p.find(qn_shape('a:pPr'))
+            if first_pPr is not None:
+                tf.paragraphs[0]._p.remove(first_pPr)
+        
         # Split new_text by newlines to create actual paragraphs
         lines = new_text.split('\n')
         print(f"    [DEBUG replace_shape_text] Text length: {len(new_text)} chars, splitting into {len(lines)} lines, font_size={font_size}")
         
         # For whole-shape text replacement, default to LEFT alignment for consistency
         effective_align = align if align else 'LEFT'
-        
-        # Clean alignment from ALL paragraphs before rebuilding
-        # (only for whole-shape replacement, not inline)
-        from pptx.oxml.ns import qn as qn_shape
-        for existing_para in tf.paragraphs:
-            existing_pPr = existing_para._p.find(qn_shape('a:pPr'))
-            if existing_pPr is not None:
-                if 'algn' in existing_pPr.attrib:
-                    del existing_pPr.attrib['algn']
         
         # Use existing first paragraph for the first line
         if len(tf.paragraphs) > 0:
@@ -256,17 +253,23 @@ class PPTGenerator:
                 from lxml import etree
                 etree.SubElement(pPr, qn('a:buNone'))
         
-        # Auto-Bold Heuristic: If line starts with "- Label:", wrap Label in **
-        # Only do this if we are likely in a bullet list context (Slide 2)
-        heuristic_pattern = r'^\s*[-•]?\s*([^*:]+):'
-        match = re.match(heuristic_pattern, text_content)
-        if match:
-            # We found a label. Let's make it bold.
-            label = match.group(1)
-            # Skip if it's the Date or the NSE/BOM/Rating line
-            if label.strip() not in ["Date", "NSE", "BOM", "Rating"] and "|" not in text_content:
-                # Replace only the first occurrence
-                text_content = text_content.replace(f"{label}:", f"**{label}:**", 1)
+        # Auto-Bold Heuristic: Bold all "Label:" patterns in the text
+        # This handles both "- Label: value" bullet patterns and "NSE:VALUE | BOM:VALUE" patterns
+        # Find all "Word:" or "Multi Word:" patterns and wrap them in **
+        # Use regex to find all label patterns (word(s) followed by colon)
+        def bold_labels(text):
+            # Match patterns like "Label:" at start or after "| " or "- " 
+            # but skip if already inside ** markers
+            result = re.sub(
+                r'(?<!\*\*)(?:^|\| |(?<=\n))\s*[-•]?\s*([A-Za-z][A-Za-z &/\-\']+):',
+                lambda m: m.group(0).replace(f"{m.group(1)}:", f"**{m.group(1)}:**"),
+                text
+            )
+            return result
+        
+        if '**' not in text_content:
+            # Only apply heuristic if there are no existing bold markers
+            text_content = bold_labels(text_content)
 
         # Split key text by **...** OR *...* to identify bold sections
         # Regex matches **bold** OR *bold*
