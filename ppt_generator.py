@@ -368,51 +368,15 @@ class PPTGenerator:
                 else:
                     # Multiple placeholders or mixed content - do inline replacement
                     print(f"    [DEBUG] -> Taking INLINE branch (mixed content)")
-                    # Note: Align parameter is ignored for inline replacements to avoid breaking layout
                     for para in tf.paragraphs:
                         current_para_text = ''.join(run.text for run in para.runs)
                         if placeholder_pattern in current_para_text:
-                            # SAFE MODE CHECK:
-                            # Only use the complex Paragraph Rewrite if the NEW TEXT contains Markdown formatting.
-                            # Otherwise, use the simple string replacement (preserves original layout perfectly).
-                            has_markdown = ('**' in new_text) or ('*' in new_text and re.search(r'\*[^*]+\*', new_text))
-                            print(f"    [DEBUG] -> Inline: has_markdown={has_markdown}, para_text='{current_para_text[:60]}...'")
-                            
-                            if has_markdown:
-                                # Use Markdown Engine (Risk: resets paragraph style, but enables bold)
-                                new_para_text = current_para_text.replace(placeholder_pattern, new_text)
-                                self.replace_paragraph_with_markdown(para, new_para_text, font_size, bold, align, color)
-                                replacements += 1
-                                continue # Done with this paragraph
-                        
-                        # Fallback / Safe Mode: Use standard inline run replacement
-                        # This preserves original font/color/size of the template runs perfectly.
-                        for run in para.runs:
-                            if placeholder_pattern in run.text:
-                                run.text = run.text.replace(placeholder_pattern, new_text)
-                                if font_size:
-                                    run.font.size = Pt(font_size)
-                                if bold:
-                                    run.font.bold = True
-                                if color:
-                                    run.font.color.rgb = RGBColor(*color)
-                                replacements += 1
-                        
-                        # Also try combined runs
-                        combined = ''.join(run.text for run in para.runs)
-                        if placeholder_pattern in combined and replacements == 0:
-                            new_combined = combined.replace(placeholder_pattern, new_text)
-                            if para.runs:
-                                para.runs[0].text = new_combined
-                                if font_size:
-                                    para.runs[0].font.size = Pt(font_size)
-                                if bold:
-                                    para.runs[0].font.bold = True
-                                if color:
-                                    para.runs[0].font.color.rgb = RGBColor(*color)
-                                for run in para.runs[1:]:
-                                    run.text = ""
-                                replacements += 1
+                            # Replace placeholder in the paragraph text, then re-render with markdown engine
+                            # This ensures bold formatting is properly handled (**bold** = bold, rest = not bold)
+                            new_para_text = current_para_text.replace(placeholder_pattern, new_text)
+                            print(f"    [DEBUG] -> Inline replacing in para: '{current_para_text[:60]}...'")
+                            self.replace_paragraph_with_markdown(para, new_para_text, font_size, bold, align, color)
+                            replacements += 1
 
         return replacements
 
