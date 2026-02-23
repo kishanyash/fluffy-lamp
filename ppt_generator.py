@@ -997,87 +997,18 @@ class PPTGenerator:
         # if table_data:
         #     success = self.find_and_populate_table('financial_table', table_data, font_size=10)
         #     print(f"  Financial Table: {'[OK] Populated' if success else '[FAILED] Table placeholder {{financial_table}} not found'}")
-        # else:
-        #     print("  Financial Table: No data found (markdown or DB fields)")
-        
-        # ===== TEXT REPLACEMENTS =====
-        print("\n--- Text Replacements ---")
-        
-        # Get or fetch BOM code (must be numeric like "507685")
-        bom_code = data.get('bom_code', '')
-        # Check if bom_code is valid (should be numeric)
-        is_valid_bom = bom_code and str(bom_code).strip().isdigit()
-        
-        if not is_valid_bom:
-            print(f"  BOM Code '{bom_code}' is invalid (not numeric). Fetching from Yahoo Finance...")
-            symbol = data.get('nse_symbol', data.get('symbol', ''))
-            name = data.get('company_name', '')
-            bom_code = self.fetch_bom_code(symbol, name)
-            print(f"  -> Found: {bom_code}" if bom_code.strip() else "  -> Not found")
-        else:
-            print(f"  BOM Code: {bom_code} (provided)")
-        
-        # Get rating, default to N/A if missing
-        rating = data.get('rating', '')
-        if not rating or str(rating).strip() == '':
-            rating = 'N/A'
-        print(f"  DEBUG: Rating/Recommendation value: '{rating}'")
-        
-        # Define placeholder mappings with their data sources
-        text_mappings = [
-            ('company_name', data.get('company_name', ''), 40, {'bold': True, 'align': 'CENTER', 'color': (255, 255, 255)}),  # Large font, Bold, Center, White
-            ('nse_symbol', data.get('nse_symbol', data.get('symbol', '')), 14, {'align': 'CENTER'}),
-            ('bom_code', bom_code, 14, {'align': 'CENTER'}),
-            ('recommendation', rating, 14, {'align': 'CENTER'}),
-            ('today_date', data.get('today_date', datetime.now().strftime('%Y-%m-%d')), 14, {'align': 'CENTER'}),
-            ('company_background', self.parse_markdown_to_text(data.get('company_background', '')), 11),
-            ('Company_Background_h', data.get('company_background_h') or "Company Background", 20, {'bold': True, 'align': 'CENTER', 'color': (255, 255, 255)}),
-            
-            # Slide 2 dynamic Masterheading
-            ('Masterheading_h', data.get('masterheading_h') or "Company Insider", 20, {'bold': True, 'align': 'CENTER', 'color': (255, 255, 255)}),
-
-            ('business_model', self.parse_markdown_to_text(data.get('business_model', '')), 11),
-            ('Business_Model_Explanation_h', data.get('business_model_h') or "Business Model", 20, {'bold': True, 'align': 'CENTER', 'color': (255, 255, 255)}),
-
-            ('management_analysis', self.parse_markdown_to_text(data.get('management_analysis', '')), 11),
-            ('Management_Analysis_h', data.get('management_analysis_h') or "Management Analysis", 20, {'bold': True, 'align': 'CENTER', 'color': (255, 255, 255)}),
-
-            ('industry_overview', self.parse_markdown_to_text(data.get('industry_overview', '')), 11),
-            ('Industry_Overview_h', data.get('industry_overview_h') or "Industry Overview", 20, {'bold': True, 'align': 'CENTER', 'color': (255, 255, 255)}),
-
-            ('industry_tailwinds', self.parse_markdown_to_text(data.get('industry_tailwinds', data.get('key_industry', ''))), 11),
-            ('Key_Industry_Tailwinds_h', data.get('industry_tailwinds_h') or "Key Industry Tailwinds", 20, {'bold': True, 'align': 'CENTER', 'color': (255, 255, 255)}),
-
-            ('demand_drivers', self.parse_markdown_to_text(data.get('demand_drivers', '')), 11),
-            ('Demand_drivers_h', data.get('demand_drivers_h') or "Demand Drivers", 20, {'bold': True, 'align': 'CENTER', 'color': (255, 255, 255)}),
-
-            ('industry_risk', self.parse_markdown_to_text(data.get('industry_risks', data.get('industry_risk', ''))), 11),
-            ('Industry_Risks_h', data.get('industry_risks_h') or "Industry Risks", 20, {'bold': True, 'align': 'CENTER', 'color': (255, 255, 255)}),
-            
-            # --- NEW FIELDS ---
-            ('market_positioning', self.parse_markdown_to_text(data.get('market_positioning', '')), 11),
-            # Schema: cs_marketing_positioning -> Template: cs_market_positioning
-            ('cs_market_positioning', self.parse_markdown_to_text(data.get('cs_marketing_positioning', data.get('market_positioning', ''))), 10),
-
-            ('financial_performance', financial_text_summary, 11),
-            # Schema: cs_financial_performance -> Template: cs_financial_performance
-            ('cs_financial_performance', self.parse_markdown_to_text(data.get('cs_financial_performance', financial_text_summary)), 10),
-
-            ('grow_outlook', self.parse_markdown_to_text(data.get('growth_outlook', '')), 11),
-            # Schema: cs_grow_outlook -> Template: cs_grow_outlook
-            ('cs_grow_outlook', self.parse_markdown_to_text(data.get('cs_grow_outlook', data.get('growth_outlook', ''))), 10),
-
-            ('valuation_recommendation', self.parse_markdown_to_text(data.get('valuation_recommendation', '')), 11),
-            # Schema: cs_value_and_recommendation -> Template: cs_valuation_recommendation
-            ('cs_valuation_recommendation', self.parse_markdown_to_text(data.get('cs_value_and_recommendation', data.get('valuation_recommendation', ''))), 10),
-
-            ('key_risks', self.parse_markdown_to_text(data.get('key_risks', '')), 11),
             # Schema: cs_key_risks -> Template: cs_key_risks
             ('cs_key_risks', self.parse_markdown_to_text(data.get('cs_key_risks', data.get('key_risks', ''))), 10),
 
             ('company_insider', self.parse_markdown_to_text(data.get('company_insider', '')), 11),
             # Schema: cs_company_insider -> Template: cs_company_insider (if exists)
             ('cs_company_insider', self.parse_markdown_to_text(data.get('cs_company_insider', data.get('company_insider', ''))), 10),
+            
+            # Slide 2 dynamic Masterheading
+            ('Masterheading_h', data.get('cs_masterheading') or data.get('masterheading_h') or "Company Insider", 20, {'bold': True, 'align': 'CENTER', 'color': (255, 255, 255)}),
+
+            ('business_model', self.parse_markdown_to_text(data.get('business_model', '')), 11),
+            ('Business_Model_Explanation_h', data.get('business_model_h') or "Business Model", 20, {'bold': True, 'align': 'CENTER', 'color': (255, 255, 255)}),
             
             # Scripts
             ('podcast_script', self.parse_markdown_to_text(data.get('podcast_script', '')), 11),
