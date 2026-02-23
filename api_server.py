@@ -104,6 +104,22 @@ def generate_ppt():
         print(f"Received request for report: {report_id}")
         print(f"{'=' * 60}")
         
+        # Debug: Log all heading and cs_ fields received
+        print("\n--- DEBUG: Incoming data keys ---")
+        print(f"  Total keys received: {len(data.keys())}")
+        debug_fields = ['cs_masterheading', 'cs_marketing_positioning', 'cs_financial_performance',
+                        'cs_grow_outlook', 'cs_value_and_recommendation', 'cs_key_risks',
+                        'cs_company_insider', 'company_background_h', 'business_model_h',
+                        'management_analysis_h', 'industry_overview_h', 'industry_tailwinds_h',
+                        'demand_drivers_h', 'industry_risks_h']
+        for field in debug_fields:
+            val = data.get(field)
+            if val:
+                print(f"  {field}: '{str(val)[:80]}...'")
+            else:
+                print(f"  {field}: [EMPTY/NULL]")
+        print("--- END DEBUG ---\n")
+        
         # Validate required fields
         required_fields = ['report_id']
         missing_fields = [f for f in required_fields if not data.get(f)]
