@@ -1196,16 +1196,8 @@ class PPTGenerator:
             'summary_table_slide10': { 
                 'url': data.get('summary_table'), 
                 'slide': 9, # Slide 10 (Index 9)
-                # User provided crop pos (cm->inch, calculated):
-                # Left=1.52cm -> 0.60"
-                # Top=1.73cm -> 0.68"
-                # Width=21.18cm -> 8.34"
-                # Height=12.2cm -> 4.80"
-                'pos': {'left': 0.60, 'top': 0.68, 'width': 8.34, 'height': 4.80},
-                # Calculated crop percentages (Offsets considered):
-                # W_total=21.74, W_crop=21.18, OffX=0.36 -> R_crop=3.0%, L_crop=0%
-                # H_total=15.69, H_crop=12.2, OffY=-0.34 -> T_crop=13.3%, B_crop=8.9%
-                'crop': {'left': 0.0, 'right': 0.030, 'top': 0.133, 'bottom': 0.089}
+                # User provided pos (cm->inch)
+                'pos': {'left': 0.60, 'top': 0.68, 'width': 8.34, 'height': 4.80}
             },
         }
 
